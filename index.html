@@ -268,6 +268,17 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 .d-chal td.day{background:var(--brand-pale);font-weight:bold;text-align:center;color:var(--brand-dark);width:17mm}
 .d-chal td.done{width:18mm;text-align:center;color:var(--brand-light);font-size:13pt}
 .d-chal td.memo{width:40mm}
+/* ロードマップ（縦の道のり） */
+.d-road{position:relative;margin:4mm 0 5mm;padding-left:2mm}
+.d-road::before{content:"";position:absolute;left:6.5mm;top:5mm;bottom:5mm;width:1mm;border-radius:1mm;background:var(--brand-light)}
+.d-road-row{position:relative;display:flex;gap:4mm;align-items:flex-start;margin-bottom:3mm}
+.d-road-row:last-child{margin-bottom:0}
+.d-road-dot{position:relative;z-index:1;flex-shrink:0;width:10mm;height:10mm;border-radius:50%;background:var(--brand);color:var(--on-brand);font-weight:bold;font-size:11pt;display:flex;align-items:center;justify-content:center;border:1mm solid #fff}
+.d-road-main{flex:1;min-width:0;background:var(--brand-pale);border-radius:3mm;padding:2.5mm 4mm}
+.d-road-when{font-weight:bold;color:var(--brand-dark);font-size:10.5pt}
+.d-road-text{font-size:9.5pt;line-height:1.7}
+/* 画面だけ／印刷だけ */
+.print-only{display:none}
 /* 私自身の場合 */
 .d-watashi{display:flex;gap:5mm;align-items:flex-start;background:var(--brand-pale);border-radius:4mm;padding:5mm;margin:4mm 0 5mm}
 .d-watashi-body{background:#fff;border-radius:3mm;padding:3.5mm 5mm;position:relative;flex:1;min-width:0}
@@ -330,6 +341,9 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
   body > *:not(#preview){display:none !important}
   #preview{display:block !important;padding:0;background:none;overflow:visible}
   .pv-bar{display:none !important}
+  .screen-only{display:none !important}
+  .print-only{display:inline !important}
+  .d-hantei-row.active{background:#f4f4f4 !important;outline:none !important}
   .ed{outline:none !important;background:none !important}
   .d-page{margin:0;box-shadow:none;break-after:page}
   .d-page:last-child{break-after:auto}
@@ -387,7 +401,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 
 <script>
 // ツールのバージョン（直して配りなおすときは、ここの数字を上げる）
-var APP_VERSION = "ver1.3";
+var APP_VERSION = "ver1.4";
 document.getElementById("appVersion").textContent = APP_VERSION;
 
 // 「個別相談で得られること」の選択肢
@@ -592,7 +606,9 @@ function renderPrompts(){
   html += promptBoxHtml(0, "タイトルを決める", "AIと相談しながら、メインタイトルと4つの章タイトルを決めます（プロライン流）。", true);
   html += '<div class="title-fields"><h3>決めたタイトルと内容メモを貼りつけてください</h3>' +
     '<div class="q-hint">ここに入れたタイトルが、1〜4番の指示文に自動で入ります。空欄のタイトルは、原稿に「（要確認）」と出ます。<br>' +
-    '「内容メモ」には、0番の最後の表の「内容」の列を、そのまま貼ってください（空欄でもOK）。章どうしの中身がかぶらないようにするために使います。</div>';
+    '「内容メモ」には、0番の最後の表の「内容」の列を、そのまま貼ってください（空欄でもOK）。章どうしの中身がかぶらないようにするために使います。<br>' +
+    'タイトルに「（53文字）」のような文字数が付いていても、欄から出ると自動で取りのぞきます。<br>' +
+    '0番で「ステップの名前」をやさしく言いかえたときは、<button class="link-btn" data-go="2">質問③の「3つのステップ」</button>も同じ名前に書きかえてください（全部の章でその名前を使います）。</div>';
   TITLE_FIELDS.forEach(function(t){
     html += '<div class="q"><label class="q-label">' + t.label + '</label>' +
       '<input type="text" data-id="' + t.id + '" value="' + esc(answers[t.id] || "") + '"></div>';
@@ -802,10 +818,10 @@ function talkSpec(){
     });
   }
   if (items.length <= 5 && !hasFree) {
-    return ["　　（このあと、次の" + items.length + "つを番号つきの箇条で書く。「／」でつなげない）"].concat(
+    return ["　　（このあと、次の" + items.length + "つを番号つきの箇条で書く。「／」でつなげない。語尾はすべて「〜します」にそろえる（例：確認する→確認します））"].concat(
       items.map(function(s, k){ return "　　" + (k + 1) + ". " + s; }));
   }
-  return ["　　（このあと、次の内容を、似ているものはまとめて3〜5個の番号つきの箇条にして書く。「1. 」から始め、6個以上にしない。「／」でつなげない）"].concat(
+  return ["　　（このあと、次の内容を、似ているものはまとめて3〜5個の番号つきの箇条にして書く。「1. 」から始め、6個以上にしない。「／」でつなげない。語尾はすべて「〜します」にそろえる）"].concat(
     items.map(function(s){ return "　　　- " + s; }));
 }
 // 「こんな方におすすめ」：空欄なら、お客様の悩みから5つ作ってもらう
@@ -822,7 +838,36 @@ function consultText(){
 // 受け取り期限・申込期限は決まっています
 var RECEIVE_DAYS = 2;
 var APPLY_DAYS = 7;
-function title(id){ return v(id) || "（要確認）"; }
+function title(id){ return cleanTitle(v(id)) || "（要確認）"; }
+
+// 0番の表からコピーしたタイトルに残りがちな「（53文字）」や、閉じていないカッコ、表の「｜」を取りのぞく
+function cleanTitle(s){
+  s = (s || "")
+    .replace(/[（(]\s*[0-9０-９]+\s*文字\s*[）)]/g, "")    // （53文字）
+    .replace(/[（(]\s*[0-9０-９]+\s*文字?\s*$/, "")         // 最後の「（53文字」「（53」
+    .replace(/^[|｜\s]+|[|｜\s]+$/g, "");                   // 表の「｜」
+  // 閉じていないカッコ（開きだけ・閉じだけ）を取りのぞく
+  [["（", "）"], ["(", ")"], ["「", "」"], ["『", "』"], ["【", "】"]].forEach(function(p){
+    var chars = s.split(""), stack = [];
+    chars.forEach(function(c, i){
+      if (c === p[0]) stack.push(i);
+      else if (c === p[1]) { if (stack.length) stack.pop(); else chars[i] = ""; }
+    });
+    stack.forEach(function(i){ chars[i] = ""; });
+    s = chars.join("");
+  });
+  return trimAll(s);
+}
+
+// 3つのステップの名前（答えの「名前（説明）」から、名前の部分だけ）
+function stepName(id){
+  var s = v(id);
+  if (!s) return "";
+  return trimAll(s.split(/[（(：:｜|]/)[0]) || s;
+}
+function stepNamesLine(){
+  return [1, 2, 3].map(function(k){ return "STEP" + k + "「" + (stepName("step" + k) || "（要確認）") + "」"; }).join("／");
+}
 
 var LINE = "━━━━━━━━━━━━━━━━━━━━";
 
@@ -917,7 +962,7 @@ function commonRules(){
     "7. 著者の一人称は「" + pronoun() + "」にそろえてください（本文・見出し・部品の中のすべて）。",
     "8. 回答に専門用語や業界の言葉があっても、読む人に向けてやさしい言葉に言いかえてください。",
     "　本文だけでなく、ステップの名前・見出し・部品のタイトルも、やさしい言葉だけにします。",
-    "　回答の「方法の名前」や「3つのステップ」に専門用語が入っていたら、やさしい言葉に言いかえた名前を使ってください。",
+    "　回答の「方法の名前」に専門用語が入っていたら、やさしい言葉に言いかえた名前を使ってください（3つのステップの名前は言いかえない。ルール15を見る）。",
     "　（例：バックエンド商品→続きのメニュー、フロントエンド商品→最初に受けやすいメニュー、動線→次につながる流れ、マインドセット→心のもち方）",
     "　「スピ系」のような、略した言い方や仲間内の言い方も使わないでください。",
     "　どうしても使う言葉は、最初に出てきたときに一度だけ、かんたんに意味を説明してください。",
@@ -926,7 +971,11 @@ function commonRules(){
     "11. 大きな話の区切りごと（800〜1,000字くらいごと）に【改ページ】を入れてください。",
     "12. 原稿だけを書いてください。前置き（「承知しました」など）や、最後の説明は書きません。",
     "13. 長くて途中で止まったときは、私が「続き」と送ります。そのときは、止まった所から続きを書いてください。",
-    "14. 商品の金額（料金・価格）は、原稿に書かないでください。" + cname() + "は無料で、商品の料金は" + cname() + "の中でお伝えします。"
+    "14. 商品の金額（料金・価格）は、原稿に書かないでください。" + cname() + "は無料で、商品の料金は" + cname() + "の中でお伝えします。",
+    "15. 3つのステップの名前は、次の名前を全部の章で一字一句同じに使ってください。言いかえたり、章ごとに変えたりしないでください。",
+    "　" + stepNamesLine(),
+    "16. 「私自身の場合」の体験談は、章ごとに切り口を変えてください（下の「この章の構成」に書いた切り口）。ほかの章と同じ文は使わないでください。",
+    "　回答に材料が足りないときは、短くするか、その章では書かないでください（話を作らない）。"
   ].join("\n");
 }
 
@@ -1035,6 +1084,14 @@ var SYMBOL_RULES = [
   "申込方法：…",
   "【/案内】",
   "",
+  "▼ロードマップ（ここから先の進み方。「時期や段階：説明」を4〜6行。3つのステップとは別のもの）",
+  "【ロードマップ】",
+  "最初の1週間：…",
+  "1か月後：…",
+  "3か月後：…",
+  "半年後：…",
+  "【/ロードマップ】",
+  "",
   "▼受け取り方（3ステップと注意。文は「この章の構成」で指定したとおりに書く）",
   "【受け取り方】",
   "STEP1：…",
@@ -1089,7 +1146,7 @@ function chapterStructure(n){
     0: [
       cover,
       "1. はじめに：【見出し】で始める。【悩み】で「よくある悩みの場面」を3〜4つ囲み、読者の気持ちに寄りそう。そのあと【強調】で「この特典で分かる3つの知識」を番号付きで3つ書く。",
-      "2. 自己紹介：【見出し】のあと【自己紹介】を使う。600字くらいまで。実績は回答の中から2〜3個にしぼる。名前・肩書き・実績・体験は、回答に書かれていることだけを使う。",
+      "2. 自己紹介：【見出し】のあと【自己紹介】を使う。600字くらいまで。実績は回答の中から2〜3個にしぼる。名前・肩書き・実績・体験は、回答に書かれていることだけを使う。体験は「困っていたこと→きっかけ→今」の全体の流れを短く書く（ここがストーリーの全体。くわしい場面は第1章〜第3章で書く）。",
       "3. 全4章の全体像：【見出し】のあと【強調】で、序章〜第3章のタイトルと、それぞれで分かることを番号付きで書く。方法の名前と3つのステップは「名前だけ」紹介し、中身の説明はしない（第1章で説明する）。第3章の説明では、最後に「" + cn + "」のご案内があることにふれる。",
       "4. 答え合わせ（本当の原因）：【見出し】で始める。お客様が思いこんでいる理由を紹介し、「じつは、本当の原因は…」と答え合わせをする。本当の原因は【強調】で囲む。",
       "　答え合わせのあとは、「ただ、一度よくなっても、しばらくすると元に戻ってしまう方が多いのです。その理由は第1章でお話しします」のように、前の文から自然につなぐ（言い回しは前後に合わせて整えてよい。理由の中身は、ここでは書かない）。",
@@ -1109,10 +1166,10 @@ function chapterStructure(n){
       "4. セルフチェック：【見出し】のあと【チェック】を使う（6項目と、判定3つ）。",
       "5. 悪循環の流れ：【見出し】のあと【悪循環】を使い、そのあと悪循環の説明を書く。",
       "6. 元に戻ってしまう理由：【見出し】で始める。序章で予告した「一度よくなっても、しばらくすると元に戻ってしまう理由」を、回答の「元に戻ってしまう理由」をもとに説明する。",
-      "7. 3ステップの紹介：【見出し】で始め、方法の名前を紹介して、【ステップ】で3つのステップを書く。",
+      "7. 3ステップの紹介：【見出し】で始め、方法の名前を紹介して、【ステップ】で3つのステップを書く。ステップのタイトルは、ルール15の名前を一字一句そのまま使う。",
       "8. STEP1のやり方：【小見出し】で始め、具体的なやり方を書き、【書き込み】を1〜2つ入れる。",
       "9. 放っておくと：【見出し】で始める。このままにした場合にどうなりやすいかを、おどかしすぎずに書く。",
-      "10. 私自身の場合：【私自身の場合】を使う。回答にある著者の体験だけを使う。",
+      "10. 私自身の場合：【私自身の場合】を使う。切り口は「困っていたころの気持ちや、具体的な場面」（回答の「困っていたこと」を中心に）。回答にある著者の体験だけを使う。",
       "11. まとめと次章予告：【見出し】で始める。大事なことを【強調】でまとめ、第2章で分かることを書く。"
     ].concat(receive(12, "アンケートに答える", "第2章")),
     2: [
@@ -1120,7 +1177,7 @@ function chapterStructure(n){
       "1. ふり返り：【見出し】で始める。第1章の内容（3つのステップとSTEP1）を、かんたんにふり返る。",
       "2. 最初のゴール：【見出し】で始める。まずめざす、小さくて分かりやすいゴールを書き、【強調】で囲む。",
       "3. 秘訣3つ：【見出し】のあと、【小見出し】で秘訣を1つずつ、3つ書く（それぞれ説明つき）。STEP2・STEP3につながる内容にする。",
-      "4. 私自身の場合：【私自身の場合】を使う。回答にある著者の体験だけを使う。",
+      "4. 私自身の場合：【私自身の場合】を使う。切り口は「きっかけのあと、実際に何を変えたか」（回答の「変わるきっかけ」から「今」までのあいだ）。回答にある著者の体験だけを使う。",
       "5. 書き込みワーク：【見出し】のあと、【書き込み】を2〜3つと、【チャレンジ表】（7日分）を入れる。",
       "6. まとめと最終章予告：【見出し】で始める。大事なことを【強調】でまとめ、第3章で分かることを書く。"
     ].concat(receive(7, "アンケートに答える", "第3章")),
@@ -1129,8 +1186,8 @@ function chapterStructure(n){
       "1. ふり返り：【見出し】で始める。第1章・第2章の内容を、かんたんにふり返る。",
       "2. その先の毎日：【見出し】で始める。この方法を続けた先にある、おだやかな毎日の様子を書く（数字や成果は約束しない）。",
       "3. お客様の変化：【見出し】で始める。回答の「お客様の変化の例」だけを使って紹介する。回答にない事例や数字は作らず、回答がなければ「（要確認）」と書く。",
-      "4. 段階ロードマップ：【見出し】のあと【ステップ】で、ここから先の3つの段階を書く。",
-      "5. 私自身の場合：【私自身の場合】を使う。回答にある著者の「今」を中心に書く。",
+      "4. 段階ロードマップ：【見出し】のあと【ロードマップ】で、ここから先の進み方を「最初の1週間→1か月後→3か月後」のように、時間や段階で4〜6つ書く。3つのステップのくり返しにはしない。数字や成果は約束しない。",
+      "5. 私自身の場合：【私自身の場合】を使う。切り口は「今の暮らしと、そこまでの道のり」（回答の「今」を中心に）。回答にある著者の体験だけを使う。",
       "6. 一人で頑張ると元に戻りやすい理由：【見出し】で始める。回答の「元に戻ってしまう理由」を使い、一人で続けるむずかしさにやさしく寄りそう。",
       "　そこから「一人で抱えず、伴走サポートで一緒に進めることで成果につながる」という流れで、次の" + fn + "のご案内へつなぐ。これを基本の形にするが、回答のサービスの内容に合わせて、言い方は変えてよい（結果を約束する言い方はしない）。",
       "7. " + fn + "のご案内：【見出し】で始める。",
@@ -1200,6 +1257,7 @@ function buildPrompt(n){
       "3. 「どの案にしますか？それとも、さらに磨きますか？」と私に聞いて止まる",
       "4. 私が選んだら、章タイトルと内容を「章｜章タイトル（文字数）｜内容｜伝える教育要素の番号」の表で出す",
       "5. 最後に「プラスα提言」の見出しで、型以上に反応が取れそうな提案を多くても3つ出す（型の案とは分けて書く）",
+      "6. 3つのステップの名前に専門用語が入っているときは、「ステップの名前（全章で使う名前）」の見出しで、やさしい言葉の名前を1つずつ決めて出す（この名前を全部の章で使う）",
       "",
       LINE,
       "■ メインタイトルのルール",
@@ -1277,7 +1335,7 @@ function buildPrompt(n){
 // うっかりミスがあっても止まらず、ふつうの文章として表示します
 // =====================================================
 var CH_NAMES = ["序章", "第1章", "第2章", "第3章"];
-var BLOCK_TAGS = ["表紙","強調","悩み","自己紹介","比較","チェック","悪循環","ステップ","書き込み","チャレンジ表","私自身の場合","案内","受け取り方","期限","締め"];
+var BLOCK_TAGS = ["表紙","強調","悩み","自己紹介","比較","チェック","悪循環","ステップ","書き込み","チャレンジ表","私自身の場合","案内","受け取り方","期限","締め","ロードマップ"];
 var LINE_TAGS = ["章","見出し","小見出し","改ページ"];
 
 function trimAll(s){ return s.replace(/^[\s　]+|[\s　]+$/g, ""); }
@@ -1557,7 +1615,7 @@ function blockToUnits(b){
       });
       flow('<div class="d-check">' + items.map(function(x){
         return '<div class="d-check-item"><input type="checkbox"><span>' + ed(x, inl(stripBullet(x.s)), "item") + "</span></div>";
-      }).join("") + (hantei.length ? '<div class="d-check-count">チェックの数：<span class="js-count">0</span>個</div><div class="d-hantei">' +
+      }).join("") + (hantei.length ? '<div class="d-check-count">チェックの数：<span class="screen-only"><span class="js-count">0</span></span><span class="print-only">（　　）</span>個</div><div class="d-hantei">' +
         hantei.map(function(h){
           return '<div class="d-hantei-row" data-min="' + h.min + '" data-max="' + h.max + '"><b>' + esc(h.range) + "</b><span>" + ed(h.lo, inl(h.text), "pipe", 1) + "</span></div>";
         }).join("") + "</div>" : "") + "</div>");
@@ -1582,6 +1640,19 @@ function blockToUnits(b){
             (st.desc ? "<p>" + ed(st.lo, inl(st.desc), "pipe", 1) + "</p>" : "") + "</div>";
         }).join("") + "</div>" + rich(others));
       break;
+    case "ロードマップ":
+      // 時期や段階ごとの、縦の道のり（「最初の1週間：〜」の形。番号や「・」があってもよい）
+      var stages = [], rmOthers = [];
+      nonBlank(body).forEach(function(x){
+        var t = stripBullet(x.s), m = t.match(/^([^：:｜|]{1,16})[：:｜|]\s*(.*)$/);
+        if (m) stages.push({ when: trimAll(m[1]), text: m[2], lo: x });
+        else rmOthers.push(x);
+      });
+      flow('<div class="d-road">' + stages.map(function(st, k){
+        return '<div class="d-road-row"><div class="d-road-dot">' + (k + 1) + '</div><div class="d-road-main"><div class="d-road-when">' +
+          ed(st.lo, inl(st.when), "key") + '</div><div class="d-road-text">' + ed(st.lo, inl(st.text), "after") + "</div></div></div>";
+      }).join("") + "</div>" + rich(rmOthers));
+      break;
     case "書き込み":
       r = takeFields(body, ["質問", "行数"]);
       var rows = Math.min(Math.max(parseInt(r.f["行数"], 10) || 3, 1), 10);
@@ -1592,7 +1663,7 @@ function blockToUnits(b){
       flow('<table class="d-chal"><tr><th>日にち</th><th>やること</th><th>できた？</th><th>ひとこと</th></tr>' +
         nonBlank(body).map(function(x){
           var m = x.s.match(/^(\d+\s*日目)\s*[：:]\s*(.*)$/);
-          return '<tr><td class="day">' + (m ? esc(m[1]) : "") + "</td><td>" + (m ? ed(x, inl(m[2]), "after") : ed(x, inl(stripBullet(x.s)), "item")) + '</td><td class="done">○</td><td class="memo"></td></tr>';
+          return '<tr><td class="day">' + (m ? esc(m[1]) : "") + "</td><td>" + (m ? ed(x, inl(m[2]), "after") : ed(x, inl(stripBullet(x.s)), "item")) + '</td><td class="done"><span class="screen-only">○</span></td><td class="memo"></td></tr>';
         }).join("") + "</table>");
       break;
     case "私自身の場合":
@@ -1840,7 +1911,7 @@ function coverFieldsOf(idx){
 // 2. 欄が空のときだけ原稿の【表紙】から。AIは章によってタイトルとサブタイトルを入れ替えて書くので、
 //    ほかの章の【表紙】にも出てくる言葉を「全体タイトル」とみなす
 function coverTitles(idx, cf){
-  var main = v("tAll"), chap = v("t" + idx);
+  var main = cleanTitle(v("tAll")), chap = cleanTitle(v("t" + idx));
   if (main && chap) return { main: main, chap: chap };
   var mine = [cf["タイトル"], cf["サブタイトル"]].filter(Boolean).map(trimAll);
   var others = [];
@@ -2177,6 +2248,19 @@ card.addEventListener("click", function(e){
   if (t.hasAttribute("data-go")) { go(Number(t.getAttribute("data-go"))); return; }
   if (t.id === "btnIconOff") { delete answers.dIcon; save(); renderFinish(); return; }
   if (t.id === "btnPrintChap") printChapter();
+});
+
+// 0番のタイトル欄：欄から出たら、文字数や閉じていないカッコを取りのぞく
+card.addEventListener("change", function(e){
+  var id = e.target.getAttribute && e.target.getAttribute("data-id");
+  if (!id || !/^t(All|\d)$/.test(id)) return;
+  var cleaned = cleanTitle(e.target.value);
+  if (cleaned !== e.target.value) {
+    e.target.value = cleaned;
+    answers[id] = cleaned;
+    save();
+    if (STEPS[stepIndex].prompts) updatePrompts();
+  }
 });
 
 card.addEventListener("change", function(e){

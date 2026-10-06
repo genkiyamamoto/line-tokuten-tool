@@ -1722,19 +1722,62 @@ function applyDocColor(hex){
 }
 
 // 全体タイトルの中の「一番強い言葉」を探す（金額 → 数字 → 「」の中の言葉）
+// 自動で選ぶ順：数字（金額がいちばん強い）→「」の中の言葉 → タイトルの最後の名詞のまとまり
+// ただし、年齢（〜代・〜歳）、範囲（30〜40、3〜5人）、日付（10月8日・2026年・10/8）の数字は選ばない
 function strongWord(title){
-  var re = /(月商|年商|月収|年収|売上|収入|手取り)?\s*\d[\d,，.．]*\s*(億円|万円|円|万|人|名|日|か月|ヶ月|カ月|年|倍|%|％|キロ|kg|歳|分|時間|週間|件|社)?/g;
+  title = title || "";
+  var re = /(月商|年商|月収|年収|売上|収入|手取り)?\s*\d[\d,，.．]*\s*(億円|万円|円|万|人|名|日|か月|ヶ月|カ月|年|倍|%|％|キロ|kg|分|時間|週間|件|社)?/g;
   var best = null, m;
   while ((m = re.exec(title))) {
-    var unit = m[2] || "", score = (m[1] ? 3 : 0) + (/円|万/.test(unit) ? 3 : 0) + (unit ? 1 : 0);
-    if (!best || score > best.score) best = { text: m[0].trim(), score: score };
+    var start = m.index + (m[0].length - m[0].replace(/^\s+/, "").length);
+    var end = m.index + m[0].length;
+    var before = title.slice(0, start), after = title.slice(end);
+    var unit = m[2] || "", digits = (m[0].match(/\d+/) || [""])[0];
+    if (/^\s*(代|歳|才)/.test(after)) continue;                               // 年齢
+    if (/^\s*[〜~～\-－]\s*\d/.test(after) || /[〜~～\-－]\s*$/.test(before)) continue; // 範囲
+    if (/^\s*月(?!商|収)/.test(after) || /^\s*[\/／]\s*\d/.test(after) || /\d\s*[\/／]\s*$/.test(before)) continue; // 日付（10月・10/8）
+    if (unit === "日" && /月\s*$/.test(before)) continue;                      // 日付（〇月〇日）
+    if (unit === "年" && digits.length === 4) continue;                         // 日付（2026年）
+    var score = (m[1] ? 3 : 0) + (/円|万/.test(unit) ? 3 : 0) + (unit ? 1 : 0);
+    // 「1日5分」のように、すぐ後ろに数字が続くときは、ひとまとまりにする
+    var text = m[0].trim(), more = after.match(/^\d[\d,，.．]*\s*(億円|万円|円|万|人|名|日|か月|ヶ月|カ月|年|倍|%|％|キロ|kg|分|時間|週間|件|社)/);
+    if (more) { text += more[0]; re.lastIndex = end + more[0].length; }
+    if (!best || score > best.score) best = { text: text, score: score };
   }
   if (best) return best.text;
   var q = title.match(/「([^」]{2,20})」/);
-  return q ? q[1] : "";
+  if (q) return q[1];
+  return lastNounPhrase(title);
+}
+// タイトルの最後の名詞のまとまり（例：「…が増えるおうち整え実践ガイド」→「おうち整え実践ガイド」）
+// 「整え」の「え」のような送りがなで止まらないよう、助詞は決まった言葉だけにする
+var PARTICLES = ["の", "を", "に", "が", "と", "で", "へ", "は", "も", "や", "から", "まで", "より", "など", "な", "って"];
+function lastNounPhrase(title){
+  var t = title.replace(/[\s！!？?。．.、，,」』）)]+$/, "");
+  if (window.Intl && Intl.Segmenter) {
+    var segs = Array.from(new Intl.Segmenter("ja", { granularity: "word" }).segment(t));
+    var out = "";
+    for (var i = segs.length - 1; i >= 0; i--) {
+      var s = segs[i].segment;
+      if (!segs[i].isWordLike) break;                                   // 記号で止める
+      if (out && PARTICLES.indexOf(s) >= 0) break;                       // 助詞（の・を・に…）で止める
+      if (out && /(る|た|だ|い|す|て|く)$/.test(s) && !/[ァ-ヴ一-龠]/.test(s.slice(-1))) break; // 動き・ようすの言葉（増える・速い）で止める
+      out = s + out;
+      if (out.length >= 14) break;
+    }
+    if (out.length >= 2) return out;
+  }
+  var m = t.match(/[ァ-ヴー一-龠々]+$/);
+  return m && m[0].length >= 2 ? m[0] : "";
+}
+// 表紙で目立たせる言葉：欄に入れた言葉があればそれ、なければ自動
+function strongTarget(title){
+  var manual = v("dStrong");
+  if (manual) return title.indexOf(manual) >= 0 ? manual : "";
+  return strongWord(title);
 }
 function titleHtml(title){
-  var w = strongWord(title), i = w ? title.indexOf(w) : -1;
+  var w = strongTarget(title), i = w ? title.indexOf(w) : -1;
   if (i < 0) return inl(title);
   return inl(title.slice(0, i)) + '<span class="d-cv-strong">' + inl(w) + "</span>" + inl(title.slice(i + w.length));
 }
@@ -1780,6 +1823,7 @@ function curChap(){ var c = Number(answers.curChap); return c >= 0 && c <= 3 ? c
 
 var layoutInfo = { warns: [], yk: 0, tall: 0 };
 var hiddenPrice = [];   // 案内カードに出していない「料金」の行（原稿の行番号）
+var lastMainTitle = ""; // 表紙に出している全体タイトル（目立たせる言葉の確認用）
 var undoStack = [];     // 「元に戻す」用：{ key, value }
 
 // 原稿の【表紙】に書かれたタイトル2つ（タイトル・サブタイトル）
@@ -1855,6 +1899,7 @@ function layoutChapter(){
   var cf = coverUnit ? coverUnit.f : {};
   var ct = coverTitles(idx, cf);
   var mainTitle = ct.main, chapTitle = ct.chap;
+  lastMainTitle = mainTitle;
   var badge = (cf["章"] || "").split(/[｜|]/)[0] || "LINE登録特典";
   var tfs = mainTitle.length <= 25 ? "24pt" : mainTitle.length <= 45 ? "21pt" : mainTitle.length <= 70 ? "18pt" : "16pt";
   var cover = addSection('<section class="d-page d-cover"><div class="d-cv-card">' +
@@ -2043,6 +2088,7 @@ function renderFinish(){
         [["auto", "自動（おすすめ）"], ["white", "白"], ["dark", "濃い色"]].map(function(o){
           return '<option value="' + o[0] + '"' + (coverTextMode() === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
         }).join("") + "</select></label>" +
+      '<label>表紙で目立たせる言葉（空欄なら自動）<input type="text" data-id="dStrong" value="' + esc(answers.dStrong || "") + '"></label>' +
     "</div>" +
     '<div class="chap-tabs">' + CH_NAMES.map(function(nm, i){
       var c = checkChapter(i);
@@ -2084,6 +2130,15 @@ function updateFinishAlerts(){
         if (ctx.length > 50) ctx = ctx.slice(0, 50) + "…";
         return '<li><button class="link-btn" data-ykgo="' + k + '">' + page + "ページ目" + (src ? "（原稿の" + src.line + "行目）" : "") + "</button>：" + esc(ctx) + "</li>";
       }).join("") + "</ul></div>";
+  }
+  // 表紙で目立たせる言葉：空欄なら、今自動で選ばれている言葉をうすく見せる／タイトルにない言葉なら知らせる
+  var strongInput = card.querySelector('[data-id="dStrong"]');
+  if (strongInput) {
+    var auto = strongWord(lastMainTitle);
+    strongInput.placeholder = auto ? "空欄なら自動：「" + auto + "」" : "空欄なら自動";
+  }
+  if (v("dStrong") && lastMainTitle.indexOf(v("dStrong")) < 0) {
+    h += '<div class="alert yk"><b>表紙で目立たせる言葉「' + esc(v("dStrong")) + "」は、タイトルの中に見つかりません。</b>全体タイトルの中にある言葉を、そのまま入れてください（今は色を付けていません）。</div>";
   }
   if (hiddenPrice.length) {
     h += '<div class="alert yk"><b>原稿に「料金」の行が ' + hiddenPrice.length + " か所残っています。</b>料金は" + esc(cname()) + "の中でお伝えするので、案内カードには表示していません。" +

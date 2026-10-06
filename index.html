@@ -348,7 +348,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
     <div class="intro-title">使い方</div>
     <ol class="intro-steps">
       <li><b>①</b> 質問に答える（分からない所は空欄でOK）</li>
-      <li><b>②</b> できあがった「指示文」をコピーして、無料版のClaudeやChatGPTに貼る</li>
+      <li><b>②</b> できあがった「指示文」をコピーして、お使いのClaudeやChatGPT（無料版でもOK）に貼る</li>
       <li><b>③</b> AIが書いた原稿を貼り戻して、色とアイコンを選び、PDFで保存する</li>
     </ol>
     <div class="intro-notes">
@@ -384,7 +384,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 
 <script>
 // ツールのバージョン（直して配りなおすときは、ここの数字を上げる）
-var APP_VERSION = "ver1.1";
+var APP_VERSION = "ver1.2";
 document.getElementById("appVersion").textContent = APP_VERSION;
 
 // 「個別相談で得られること」の選択肢
@@ -576,7 +576,7 @@ function renderPrompts(){
   var blanks = countBlanks();
   var html = '<div class="step-title">指示文をつくる</div>';
   html += '<div class="howto"><ol>' +
-    '<li>「0番」をコピーして、無料版のClaudeかChatGPTの<b>新しいチャット</b>に貼りつけて送ります。</li>' +
+    '<li>「0番」をコピーして、お使いのClaudeかChatGPT（無料版でもOK）の<b>新しいチャット</b>に貼りつけて送ります。</li>' +
     '<li>AIが「どの案にしますか？」と聞いてくるので、選んだ番号や直してほしい所を送ります。最後に章タイトルの表が出てきます。</li>' +
     '<li>決まったメインタイトルと4つの章タイトルを、下の5つの欄に貼りつけます。</li>' +
     '<li>「1番」〜「4番」を、<b>1つずつ新しいチャット</b>に貼りつけて送ると、各章の原稿ができます。</li>' +

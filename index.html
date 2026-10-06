@@ -51,6 +51,11 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
 .step-title{font-size:24px;font-weight:bold;margin-bottom:6px}
 .step-lead{color:#555;margin-bottom:6px}
 .step-note{font-size:14px;color:var(--brand-dark);background:var(--brand-pale);border-radius:8px;padding:8px 12px;margin:10px 0 4px}
+.demo-box{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:14px 0 4px;padding:12px 14px;border:1.5px dashed #e9a23b;border-radius:10px;background:#fffaf0}
+.demo-btn{font-family:var(--font);font-size:15px;font-weight:bold;background:#e98b2a;color:#fff;border:none;border-radius:999px;padding:9px 20px;cursor:pointer;white-space:nowrap}
+.demo-btn:hover{background:#d4761a}
+.demo-text{font-size:13px;color:#6b4a00;flex:1;min-width:200px}
+.demo-done{color:#2f7d32}
 .q{margin-top:26px}
 .q-label{display:block;font-weight:bold;font-size:17px;margin-bottom:8px}
 .q-label .num{display:inline-block;background:var(--brand);color:#fff;border-radius:999px;font-size:13px;padding:0 10px;margin-right:8px;vertical-align:2px}
@@ -379,7 +384,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 
 <script>
 // ツールのバージョン（直して配りなおすときは、ここの数字を上げる）
-var APP_VERSION = "ver1.0";
+var APP_VERSION = "ver1.1";
 document.getElementById("appVersion").textContent = APP_VERSION;
 
 // 「個別相談で得られること」の選択肢
@@ -538,6 +543,13 @@ function renderQuestions(step){
   var html = '<div class="step-title">' + step.name + '</div>';
   html += '<div class="step-lead">' + step.lead + '<br>分からない質問は、空欄のまま進んでOKです。</div>';
   if (step.note) html += '<div class="step-note">' + step.note + '</div>';
+  // 1画面目だけ：勉強会のデモ・練習用に、例をまとめて入れるボタン
+  if (stepIndex === 0) {
+    html += '<div class="demo-box"><button class="demo-btn" id="btnDemo">例を入れて試してみる</button>' +
+      '<span class="demo-text">' + (demoJustFilled ? '<b class="demo-done">✓ 例を入れました。「次へ」で進んでみてください。</b>' :
+        "勉強会の練習用です。架空の整理収納アドバイザー（春野 ゆい／くらし整えラボ）の答えが入ります。") + "</span></div>";
+    demoJustFilled = false;
+  }
   step.qs.forEach(function(q, i){
     html += '<div class="q"><label class="q-label"><span class="num">質問' + (i + 1) + '</span>' + q.label + '</label>';
     if (q.hint) html += '<div class="q-hint">' + q.hint + '</div>';
@@ -677,7 +689,28 @@ card.addEventListener("input", function(e){
   if (step.finish) scheduleLayout();
 });
 
+// =====================================================
+// 例を入れて試してみる（薄い文字で出している例を、そのまま答えに入れる）
+// =====================================================
+var demoJustFilled = false;
+function fillExample(){
+  if (!confirm("今入っている答えは、例で上書きされます。よろしいですか？")) return;
+  STEPS.forEach(function(step){
+    (step.qs || []).forEach(function(q){
+      (q.sub || [q]).forEach(function(f){
+        if (f.id && f.ex != null && !f.select) answers[f.id] = f.ex;
+      });
+      // 「得られること」は、例の文だけにそろえる（チェックは外す）
+      if (q.checks) answers[q.checks.id] = [];
+    });
+  });
+  save();
+  demoJustFilled = true;
+  go(0);
+}
+
 card.addEventListener("click", function(e){
+  if (e.target.closest("#btnDemo")) { fillExample(); return; }
   var btn = e.target.closest("[data-copy]");
   if (!btn) return;
   copyText(buildPrompt(Number(btn.getAttribute("data-copy"))), btn);

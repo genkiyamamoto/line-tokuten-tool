@@ -97,6 +97,9 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
 .title-fields h3{font-size:16px;margin-bottom:4px}
 .title-fields .q{margin-top:12px}
 .title-fields .q-label{font-size:15px}
+.memo-field{display:block;margin:6px 0 4px 16px}
+.memo-field textarea{width:100%;font-family:var(--font);font-size:14px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;line-height:1.6}
+.memo-field textarea::placeholder{color:#b5b5b5}
 
 /* ===== 原稿を貼る画面 ===== */
 .paste-box{border:1.5px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:20px}
@@ -384,7 +387,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 
 <script>
 // ツールのバージョン（直して配りなおすときは、ここの数字を上げる）
-var APP_VERSION = "ver1.2";
+var APP_VERSION = "ver1.3";
 document.getElementById("appVersion").textContent = APP_VERSION;
 
 // 「個別相談で得られること」の選択肢
@@ -587,11 +590,18 @@ function renderPrompts(){
   }
 
   html += promptBoxHtml(0, "タイトルを決める", "AIと相談しながら、メインタイトルと4つの章タイトルを決めます（プロライン流）。", true);
-  html += '<div class="title-fields"><h3>決めたタイトルを貼りつけてください</h3>' +
-    '<div class="q-hint">ここに入れたタイトルが、1〜4番の指示文に自動で入ります。空欄のタイトルは、原稿に「（要確認）」と出ます。</div>';
+  html += '<div class="title-fields"><h3>決めたタイトルと内容メモを貼りつけてください</h3>' +
+    '<div class="q-hint">ここに入れたタイトルが、1〜4番の指示文に自動で入ります。空欄のタイトルは、原稿に「（要確認）」と出ます。<br>' +
+    '「内容メモ」には、0番の最後の表の「内容」の列を、そのまま貼ってください（空欄でもOK）。章どうしの中身がかぶらないようにするために使います。</div>';
   TITLE_FIELDS.forEach(function(t){
     html += '<div class="q"><label class="q-label">' + t.label + '</label>' +
       '<input type="text" data-id="' + t.id + '" value="' + esc(answers[t.id] || "") + '"></div>';
+    // 章ごとの内容メモ（t0〜t3 のすぐ下）
+    var m = t.id.match(/^t(\d)$/);
+    if (m) {
+      html += '<label class="sub-field memo-field"><span>' + CH_NAMES[Number(m[1])] + 'の内容メモ（空欄でもOK）</span>' +
+        '<textarea rows="2" data-id="memo' + m[1] + '" placeholder="例）最初に目指すゴールと、うまくいく秘訣3つ。書き込みワーク">' + esc(answers["memo" + m[1]] || "") + "</textarea></label>";
+    }
   });
   html += '</div></div>';
 
@@ -863,6 +873,26 @@ function titlesBlock(){
     "・第2章：" + title("t2"),
     "・第3章：" + title("t3")
   ].join("\n");
+}
+
+// 0番で決めた「各章の内容メモ」。章どうしの中身がかぶらないように、全部の章のメモを入れる
+// （どれも空欄なら、何も入れない）
+function memoBlock(cur){
+  var memos = [0, 1, 2, 3].map(function(k){ return v("memo" + k); });
+  if (!memos.some(Boolean)) return "";
+  return [
+    LINE,
+    "■ 各章の内容メモ（0番で決めたもの）",
+    LINE
+  ].concat(memos.map(function(m, k){
+    return "・" + CH_NAMES[k] + (k === cur ? "（← この章）" : "") + "：" + (m ? m.replace(/\s*\n\s*/g, "／") : "（未記入：下の構成どおりに書く）");
+  })).concat([
+    "",
+    "・この章は、「" + CH_NAMES[cur] + "」の内容メモに沿って書いてください。",
+    "・ほかの章の内容メモに書かれていることは、この章では書かないでください（その章で書くため）。",
+    "　ただし、序章の「全4章の全体像」と、各章の「ふり返り」「次章予告」で、ほかの章の内容に1〜2文でふれるのはかまいません。",
+    ""
+  ]).join("\n");
 }
 
 function chapterRoles(){
@@ -1224,6 +1254,7 @@ function buildPrompt(n){
     "全4章の流れ：",
     chapterRoles(),
     "",
+    memoBlock(n - 1),
     LINE,
     "■ " + label + "の構成（この順番で書いてください）",
     LINE,

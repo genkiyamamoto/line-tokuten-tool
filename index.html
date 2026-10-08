@@ -129,8 +129,17 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
 .fixnote.ng{color:#8a5a00;background:#fff6d9;font-weight:bold}
 .removed{margin-top:6px;font-size:13px;color:#555;background:#f6f6f6;border-radius:8px;padding:6px 10px}
 .removed summary{cursor:pointer;color:#4a5a58;font-weight:bold}
-.removed ul{padding-left:20px;margin-top:4px;color:#666}
-.removed-note{font-size:12px;color:#888;margin-top:4px}
+.removed.done summary{color:#2f7d32}
+.removed > .mini-btn{margin:6px 0 2px}
+.chat-list{list-style:none;padding:0;margin-top:4px}
+.chat-list li{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #ddd}
+.chat-list li:last-child{border-bottom:none}
+.chat-text{flex:1;min-width:0;color:#555}
+.chat-btns{display:flex;gap:4px;flex-shrink:0}
+.chat-done{flex-shrink:0;font-size:12px;font-weight:bold;color:#2f7d32}
+.chat-list li.gone .chat-text{text-decoration:line-through;color:#aaa}
+.chat-list li.kept .chat-done{color:#8a5a00}
+.mini-btn.plain{border-color:#bbb;color:#666}
 .mini-btn{font-family:var(--font);font-size:12px;font-weight:bold;background:#fff;color:var(--brand-dark);border:1.5px solid var(--brand);border-radius:999px;padding:2px 10px;margin:2px 0;cursor:pointer;vertical-align:1px}
 .mini-btn:hover{background:var(--brand-pale)}
 .mini-btn.done{background:#e98b2a;border-color:#e98b2a;color:#fff}
@@ -422,7 +431,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 
 <script>
 // ツールのバージョン（直して配りなおすときは、ここの数字を上げる）
-var APP_VERSION = "ver1.7";
+var APP_VERSION = "ver1.8";
 document.getElementById("appVersion").textContent = APP_VERSION;
 
 // 「個別相談で得られること」の選択肢
@@ -814,6 +823,12 @@ function fillExample(key){
 }
 
 card.addEventListener("click", function(e){
+  var chat = e.target.closest("[data-chat]");
+  if (chat) {
+    var cp = chat.getAttribute("data-chat").split(":");
+    chatterAction(Number(cp[0]), cp[1], Number(cp[2]));
+    return;
+  }
   if (e.target.closest("#btnDemo")) {
     var box = document.getElementById("demoChoices");
     if (box) box.hidden = !box.hidden;
@@ -1451,7 +1466,7 @@ function partBlock(idx){
     LINE,
     "■ 書き方（長いので、パートに分けて書く）",
     LINE,
-    "・この章は全部で" + tg.text + "です。1回に約5,000字ずつ、全部で" + tg.parts + "に分けて書いてください。",
+    "・この章は全部で" + tg.text + "です。1回に4,500〜5,500字ずつ、全部で" + tg.parts + "に分けて書いてください。上限をこえないように、全体の文字数も意識して書いてください。",
     "・いちばん最初に「全部で○パートに分けます」と1行で書いてから、パート1を書き始めてください。",
     "・1パート書いたら、最後に「パート○まで書きました。続きを書きますか？」と1行で書いて止まってください。",
     "・私が「続き」と送ったら、前の文章を書き直さず、止まった所の続きから書いてください。",
@@ -1580,9 +1595,17 @@ function isChatter(s){
 var stripCache = { src: null, out: null };
 function stripChatter(text){
   text = text || "";
-  if (stripCache.src === text) return stripCache.out;
+  // \u300c\u6b8b\u3059\u300d\u3092\u9078\u3093\u3060\u884c\u306f\u3001\u53d6\u308a\u306e\u305e\u304b\u306a\u3044\uff08PDF\u306b\u3082\u5165\u308b\uff09
+  var kept = answers.keepLines || [];
+  var key = text + "\u0000" + kept.join("\u0001");
+  if (stripCache.src === key) return stripCache.out;
   var rows = text.replace(/\r\n?|\u2028|\u2029|\u0085/g, "\n").split("\n"), keep = rows.map(function(){ return true; }), removed = [];
-  function drop(i){ keep[i] = false; if (trimAll(rows[i])) removed.push({ line: i + 1, text: trimAll(rows[i]) }); }
+  function drop(i){
+    var t = trimAll(rows[i]);
+    if (t && kept.indexOf(t) >= 0) return;
+    keep[i] = false;
+    if (t) removed.push({ line: i + 1, text: t });
+  }
   var hasMarks = rows.some(function(s){ return MARK_FROM.test(trimAll(s)); });
   if (hasMarks) {
     // 目印の外側を、ひとまとまりずつ見る
@@ -1609,8 +1632,70 @@ function stripChatter(text){
     });
   }
   var out = { text: rows.map(function(s, i){ return keep[i] ? s : ""; }).join("\n"), removed: removed };
-  stripCache = { src: text, out: out };
+  stripCache = { src: key, out: out };
   return out;
+}
+
+// =====================================================
+// AIのあいさつなどの行の一覧（消す・残すを選べる）
+// 消したり残したりしても、一覧の行はその場に残し、表示だけ変える
+// =====================================================
+var chatterState = {};   // 章ごと：{ sig: 原稿, items: [{ text, line, status: "pending" | "deleted" | "kept" }], open }
+function chatterItems(idx){
+  var text = answers["m" + idx] || "", st = chatterState[idx];
+  if (!st || st.sig !== text) {
+    // 原稿が自分で書きかえられたとき（ボタン以外）は、一覧を作り直す
+    st = chatterState[idx] = { sig: text, open: st ? st.open : false,
+      items: stripChatter(text).removed.map(function(x){ return { text: x.text, line: x.line, status: "pending" }; }) };
+  }
+  return st;
+}
+// 原稿の欄から、その行を1つ消す（いちばん近い行番号のものを消す）
+function deleteChatterLine(idx, item){
+  var key = "m" + idx, rows = (answers[key] || "").split("\n"), best = -1;
+  rows.forEach(function(s, i){
+    if (trimAll(s) === item.text && (best < 0 || Math.abs(i + 1 - item.line) < Math.abs(best + 1 - item.line))) best = i;
+  });
+  if (best < 0) return;
+  rows.splice(best, 1);
+  answers[key] = rows.join("\n");
+  item.status = "deleted";
+  // うしろの行は1つ上にずれる
+  chatterState[idx].items.forEach(function(x){ if (x.status === "pending" && x.line > best + 1) x.line--; });
+}
+function chatterAction(idx, act, k){
+  var st = chatterItems(idx);
+  if (act === "all") st.items.forEach(function(x){ if (x.status === "pending") deleteChatterLine(idx, x); });
+  else if (act === "del") deleteChatterLine(idx, st.items[k]);
+  else if (act === "keep") {
+    var it = st.items[k];
+    answers.keepLines = (answers.keepLines || []).concat([it.text]);
+    it.status = "kept";
+  }
+  st.sig = answers["m" + idx] || "";
+  st.open = true;
+  save();
+  var ta = card.querySelector('[data-id="m' + idx + '"]');
+  if (ta) ta.value = answers["m" + idx] || "";
+  updatePasteStatus(idx);
+}
+function chatterHtml(idx){
+  var st = chatterItems(idx), items = st.items;
+  if (!items.length) return "";
+  var pending = items.filter(function(x){ return x.status === "pending"; }).length;
+  var head = pending
+    ? "AIのあいさつなどが " + pending + " 行あります。PDFには入りませんが、原稿の欄には残っています。確認して、いらなければ消してください。"
+    : "✓ AIのあいさつなどは、すべて片づきました。";
+  return '<details class="removed' + (pending ? "" : " done") + '" data-chatter="' + idx + '"' + (st.open ? " open" : "") + "><summary>" + head + "</summary>" +
+    (pending ? '<button class="mini-btn" data-chat="' + idx + ':all">まとめて原稿から消す</button>' : "") +
+    '<ul class="chat-list">' + items.map(function(x, k){
+      var t = esc(x.text.length > 70 ? x.text.slice(0, 70) + "…" : x.text);
+      if (x.status === "deleted") return '<li class="gone"><span class="chat-text">' + t + '</span><span class="chat-done">✓ 消しました</span></li>';
+      if (x.status === "kept") return '<li class="kept"><span class="chat-text">' + t + '</span><span class="chat-done">残しています（PDFに入ります）</span></li>';
+      return '<li><span class="chat-text">' + x.line + "行目：" + t + '</span><span class="chat-btns">' +
+        '<button class="mini-btn" data-chat="' + idx + ":del:" + k + '">消す</button>' +
+        '<button class="mini-btn plain" data-chat="' + idx + ":keep:" + k + '">残す</button></span></li>';
+    }).join("") + "</ul></details>";
 }
 
 // =====================================================
@@ -1661,8 +1746,15 @@ function normalizeStoredManuscripts(){
 }
 
 // 原稿の文字数（記号・空白・取りのぞいた行は数えない）
+// 本文の文字数：記号（【見出し】など）、行の頭の項目名（「タイトル：」「STEP1：」など）、
+// 箇条の「・」「1.」、空白、取りのぞく行（AIのあいさつなど）は数えない
 function manuscriptChars(text){
-  return stripChatter(text).text
+  return stripChatter(text).text.split("\n").map(function(s){
+    return trimAll(s)
+      .replace(/^【\/?[^】]{1,12}】/, "")                                  // 行の頭の記号
+      .replace(/^[^：:\s。、！？「」【】]{1,15}[：:]/, "")                 // 行の頭の項目名
+      .replace(/^(\d{1,2}[\.．、\)）]|[・•])\s*/, "");                     // 箇条の印
+  }).join("")
     .replace(/【\/?[^】]{1,12}】/g, "").replace(/[\s\u3000]/g, "").length;
 }
 // 目標と今の文字数を見て、ひとこと
@@ -2445,13 +2537,7 @@ function pasteStatusHtml(idx){
   var cs = charStatus(idx);
   if (cs) h += cs.html;
   // 自動で取りのぞいた行（押すと中身を見られる）
-  var rm = stripChatter(answers["m" + idx] || "").removed;
-  if (rm.length) {
-    h += '<details class="removed"><summary>AIのあいさつなど ' + rm.length + " 行を自動で取りのぞきました（押すと中身を確認できます）</summary><ul>" +
-      rm.slice(0, 30).map(function(x){ return "<li>" + x.line + "行目：" + esc(x.text.length > 70 ? x.text.slice(0, 70) + "…" : x.text) + "</li>"; }).join("") +
-      (rm.length > 30 ? "<li>ほか " + (rm.length - 30) + " 行</li>" : "") +
-      '</ul><div class="removed-note">原稿の欄の中身はそのままです。まちがって消えている行があれば、その行の言い方を少し変えてください。</div></details>';
-  }
+  h += chatterHtml(idx);
   if (c.warns.length) h += '<span class="ng">⚠ ' + c.warns.length + "か所、記号を確認してください</span>" + warnListHtml(idx, c.warns);
   else h += '<span class="ok">✓ 記号はOKです</span>';
   if (c.ykCount) h += '<div class="yk">（要確認）が ' + c.ykCount + " か所あります（行番号を押すと、その場所に移動します）</div>" + ykListHtml(idx, c.yk);
@@ -2469,7 +2555,7 @@ function pasteSummaryHtml(){
       var cs = charStatus(i);
       if (cs) s += '　<span class="chars-mini">' + cs.now.toLocaleString() + "字／目標" + CH_TARGETS[i].goal.toLocaleString() + "字</span>";
       var rmN = stripChatter(answers["m" + i] || "").removed.length;
-      if (rmN) s += '　<span class="chars-mini">（あいさつなど' + rmN + "行を取りのぞき）</span>";
+      if (rmN) s += '　<span class="chars-mini yk">（AIのあいさつなど' + rmN + "行あり）</span>";
       return "<li><b>" + nm + "</b>：" + s + "</li>";
     }).join("") + '</ul><div class="summary-time" id="summaryTime"></div>';
 }
@@ -2639,6 +2725,14 @@ card.addEventListener("click", function(e){
   if (t.id === "btnIconOff") { delete answers.dIcon; save(); renderFinish(); return; }
   if (t.id === "btnPrintChap") printChapter();
 });
+
+// あいさつの一覧を開いた・閉じたを覚えておく（消す・残すを押しても閉じないように）
+card.addEventListener("toggle", function(e){
+  var d = e.target;
+  if (!d.getAttribute || !d.hasAttribute("data-chatter")) return;
+  var st = chatterState[Number(d.getAttribute("data-chatter"))];
+  if (st) st.open = d.open;
+}, true);
 
 // 0番のタイトル欄：欄から出たら、文字数や閉じていないカッコを取りのぞく
 card.addEventListener("change", function(e){

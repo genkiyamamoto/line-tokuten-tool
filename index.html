@@ -106,6 +106,13 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
 .title-fields h3{font-size:16px;margin-bottom:4px}
 .title-fields .q{margin-top:12px}
 .title-fields .q-label{font-size:15px}
+.volume-box{margin-top:22px;border:1.5px solid var(--brand);border-radius:12px;padding:12px 16px;background:#fbfefd}
+.volume-title{font-weight:bold;font-size:16px;margin-bottom:6px;color:var(--brand-dark)}
+.volume-opt{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:8px;cursor:pointer;margin-top:4px;border:1.5px solid transparent}
+.volume-opt.on{background:var(--brand-pale);border-color:var(--brand)}
+.volume-opt input{margin-top:5px;accent-color:var(--brand);width:18px;height:18px;flex-shrink:0}
+.volume-opt span{display:flex;flex-direction:column;font-size:15px}
+.volume-opt small{font-size:13px;color:#555;line-height:1.6}
 .memo-field{display:block;margin:6px 0 4px 16px}
 .memo-field textarea{width:100%;font-family:var(--font);font-size:14px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;line-height:1.6}
 .memo-field textarea::placeholder{color:#b5b5b5}
@@ -181,7 +188,7 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
   --brand:#2f8f83;--brand-dark:#21645c;--brand-light:#97c7c1;--brand-pale:#eaf4f3;
   --on-brand:#fff;--on-dark:#fff;--text:#333;--sub:#777;--line:#ddd;
   display:none;background:#e6e6e6;padding:24px 0 60px;
-  font-size:10.5pt;line-height:1.8;color:var(--text)
+  font-size:11pt;line-height:1.95;color:var(--text)
 }
 #preview.show{display:block}
 html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -195,7 +202,8 @@ html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .d-footer .d-catch{flex:1;text-align:center;color:var(--brand-dark)}
 .d-footer .d-no{white-space:nowrap}
 .d-label{align-self:flex-start;background:var(--brand-pale);color:var(--brand-dark);font-weight:bold;font-size:9pt;padding:1mm 4mm;border-radius:999px;margin-bottom:3mm}
-.d-body p{margin:0 0 3mm}
+.d-body p{margin:0 0 4.5mm}
+.d-body .d-list{margin-bottom:4.5mm}
 .d-h2{font-size:15pt;line-height:1.5;padding:0 0 2mm 4mm;border-left:2.5mm solid var(--brand);border-bottom:1px solid var(--brand-light);margin:2mm 0 5mm}
 .d-h3{font-size:12pt;color:var(--brand-dark);margin:5mm 0 2mm;padding-left:6mm;position:relative;line-height:1.6}
 .d-h3::before{content:"";position:absolute;left:0;top:.55em;width:3.5mm;height:3.5mm;border-radius:50%;background:var(--brand)}
@@ -431,7 +439,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 
 <script>
 // ツールのバージョン（直して配りなおすときは、ここの数字を上げる）
-var APP_VERSION = "ver1.8";
+var APP_VERSION = "ver1.9";
 document.getElementById("appVersion").textContent = APP_VERSION;
 
 // 「個別相談で得られること」の選択肢
@@ -632,7 +640,7 @@ function renderPrompts(){
     '<li>決まったメインタイトルと4つの章タイトルを、下の5つの欄に貼りつけます。</li>' +
     '<li>「1番」〜「4番」を、<b>1つずつ新しいチャット</b>に貼りつけて送ると、各章の原稿ができます。</li>' +
     '<li>原稿が途中で止まったら、同じチャットで「続き」と送ってください。</li>' +
-    '<li>第1〜3章は長いので、AIが何回かに分けて書きます。「続きを書きますか？」と聞かれたら「続き」と送ってください。</li>' +
+    '<li>長い章は、AIが何回かに分けて書きます。「続きを書きますか？」と聞かれたら「続き」と送ってください。</li>' +
     '</ol></div>';
   if (blanks > 0) {
     html += '<div class="blank-note">空欄の質問が ' + blanks + ' 個あります。その部分は、原稿に「（要確認）」と出ます。あとで書き足せばOKです。</div>';
@@ -656,13 +664,20 @@ function renderPrompts(){
   });
   html += '</div></div>';
 
-  html += promptBoxHtml(1, "序章の原稿", "はじめに・自己紹介・全体像・本当の原因・受け取り方（約2,000字）");
+  // 文字数のモード（1〜4番の指示文と、原稿を貼る画面の「目標／今」に使う）
+  var vm = volumeMode();
+  html += '<div class="volume-box"><div class="volume-title">文字数</div>' +
+    '<label class="volume-opt' + (vm === "standard" ? " on" : "") + '"><input type="radio" name="volume" value="standard"' + (vm === "standard" ? " checked" : "") + '>' +
+      '<span><b>標準（おすすめ）</b><small>序章 約2,500字／第1章・第2章 約5,000字／第3章 約7,000字（第3章だけ2回に分けて書きます）</small></span></label>' +
+    '<label class="volume-opt' + (vm === "rich" ? " on" : "") + '"><input type="radio" name="volume" value="rich"' + (vm === "rich" ? " checked" : "") + '>' +
+      '<span><b>たっぷり</b><small>情報の量を多くして、高額のサポートにつなげたい人向け。ページ数がかなり増えます。<br>序章 約2,500字／第1章・第2章 約10,000字／第3章 約18,000字（第1〜3章は何回かに分けて書きます）</small></span></label></div>';
+  html += promptBoxHtml(1, "序章の原稿", "はじめに・自己紹介・全体像・本当の原因・受け取り方（" + volLabel(0) + "）");
   html += '</div>';
-  html += promptBoxHtml(2, "第1章の原稿", "AさんBさんの比較・セルフチェック・悪循環・3ステップ・STEP1（約10,000字・2パートに分けて書きます）");
+  html += promptBoxHtml(2, "第1章の原稿", "AさんBさんの比較・セルフチェック・悪循環・3ステップ・STEP1（" + volLabel(1) + "）");
   html += '</div>';
-  html += promptBoxHtml(3, "第2章の原稿", "最初のゴール・秘訣3つ・書き込みワーク（約10,000字・2パートに分けて書きます）");
+  html += promptBoxHtml(3, "第2章の原稿", "最初のゴール・秘訣3つ・書き込みワーク（" + volLabel(2) + "）");
   html += '</div>';
-  html += promptBoxHtml(4, "第3章の原稿", "その先の毎日・ロードマップ・無料個別相談の案内（約18,000字・3〜4パートに分けて書きます）");
+  html += promptBoxHtml(4, "第3章の原稿", "その先の毎日・ロードマップ・無料個別相談の案内（" + volLabel(3) + "）");
   html += '</div>';
   card.innerHTML = html;
   updatePrompts();
@@ -942,6 +957,8 @@ function title(id){ return cleanTitle(v(id)) || "（要確認）"; }
 // 0番の表からコピーしたタイトルに残りがちな「（53文字）」や、閉じていないカッコ、表の「｜」を取りのぞく
 function cleanTitle(s){
   s = (s || "")
+    .replace(/^[\s　]*(?:(?:序章|第[0-9０-９一二三四]章)[\s　]*[｜|：:][\s　]*)?章[\s　]+/, "")   // 頭の「章　」
+    .replace(/^[\s　]*(?:序章|第[0-9０-９一二三四]章)[\s　]*[｜|：:][\s　]*/, "")                     // 頭の「序章｜」
     .replace(/[（(]\s*[0-9０-９]+\s*文字\s*[）)]/g, "")    // （53文字）
     .replace(/[（(]\s*[0-9０-９]+\s*文字?\s*$/, "")         // 最後の「（53文字」「（53」
     .replace(/^[|｜\s]+|[|｜\s]+$/g, "");                   // 表の「｜」
@@ -1075,7 +1092,11 @@ function commonRules(){
     "　" + stepNamesLine(),
     "16. 「私自身の場合」の体験談は、章ごとに切り口を変えてください（下の「この章の構成」に書いた切り口）。ほかの章と同じ文は使わないでください。",
     "　回答に材料が足りないときは、短くするか、その章では書かないでください（話を作らない）。",
-    "17. 不安をあおる言い方（例：このままだと不幸になる）と、運命や結果を言い切る言い方（例：必ず運気が上がる）は使わないでください。"
+    "17. 不安をあおる言い方（例：このままだと不幸になる）と、運命や結果を言い切る言い方（例：必ず運気が上がる）は使わないでください。",
+    "18. 1つの段落は3行以内（めやす：100字まで）にしてください。段落の間は1行あけます。",
+    "19. ふつうの文章が5段落続いたら、強調ボックス・チェックリスト・チャレンジ表・ステップ・書き込み欄などの部品を入れて、読む人がひと息つけるようにしてください。",
+    "20. 同じ言い回しを、1つの章の中でくり返さないでください（例：「大切なのは〜です」「〜しなくても大丈夫です」）。",
+    "21. 情報の量は、文章を長くするより、ワーク・チェックリスト・具体例・よくある質問で増やしてください。"
   ].join("\n");
 }
 
@@ -1399,7 +1420,7 @@ function buildPrompt(n){
   }
 
   var label = ["序章","第1章","第2章","第3章"][n - 1];
-  var tg = CH_TARGETS[n - 1];
+  var tg = chTarget(n - 1);
   return [
     "あなたは、LINE公式アカウントの登録特典（全4章のPDF）を書くプロのライターです。",
     "下の「回答」をもとに、「" + label + "」の原稿を書いてください。",
@@ -1444,13 +1465,31 @@ function buildPrompt(n){
   ]).join("\n");
 }
 
-// 章ごとの文字数（目標と上限）。「情報の量がご成約につながる」というプロラインの考え方で決めた
-var CH_TARGETS = [
-  { goal: 2000,  max: 3000,  text: "約2,000字",                  parts: "" },
-  { goal: 10000, max: 12000, text: "約10,000字（上限12,000字）", parts: "2パート" },
-  { goal: 10000, max: 12000, text: "約10,000字（上限12,000字）", parts: "2パート" },
-  { goal: 18000, max: 24000, text: "約18,000字（上限24,000字）", parts: "3〜4パート" }
-];
+// 章ごとの文字数（目標と上限）。2つのモードから選べる
+// ・たっぷり：「情報の量がご成約につながる」というプロラインの考え方。高額のサポートにつなげたい人向け
+// ・標準（おすすめ）：読みやすさを大事にした量。最初はこちら
+// 標準の第1〜3章は上限の指定がないので、目標の1.2倍を「少し長め」のめやすにする
+var VOLUME_MODES = {
+  standard: [
+    { goal: 2500, max: 3000, text: "約2,500字（上限3,000字）", parts: "",        perPart: "" },
+    { goal: 5000, max: 6000, text: "約5,000字",               parts: "",        perPart: "" },
+    { goal: 5000, max: 6000, text: "約5,000字",               parts: "",        perPart: "" },
+    { goal: 7000, max: 8400, text: "約7,000字",               parts: "2パート", perPart: "約3,500字" }
+  ],
+  rich: [
+    { goal: 2500,  max: 3000,  text: "約2,500字（上限3,000字）",   parts: "",           perPart: "" },
+    { goal: 10000, max: 12000, text: "約10,000字（上限12,000字）", parts: "2パート",    perPart: "4,500〜5,500字" },
+    { goal: 10000, max: 12000, text: "約10,000字（上限12,000字）", parts: "2パート",    perPart: "4,500〜5,500字" },
+    { goal: 18000, max: 24000, text: "約18,000字（上限24,000字）", parts: "3〜4パート", perPart: "4,500〜5,500字" }
+  ]
+};
+function volumeMode(){ return answers.volume === "rich" ? "rich" : "standard"; }
+// 指示文の箱の説明に出す「約○字・○パート」
+function volLabel(i){
+  var t = VOLUME_MODES[volumeMode()][i];
+  return t.text.replace(/（.*）/, "") + (t.parts ? "・" + t.parts + "に分けて書きます" : "");
+}
+function chTarget(i){ return VOLUME_MODES[volumeMode()][i]; }
 // 文字数をふやすときの材料（同じ話のくり返しで増やさない）
 var CH_MATERIALS = [
   "",
@@ -1460,13 +1499,13 @@ var CH_MATERIALS = [
 ];
 // 第1〜3章：パートに分けて書いてもらう
 function partBlock(idx){
-  var tg = CH_TARGETS[idx];
+  var tg = chTarget(idx);
   if (!tg.parts) return [];
   return [
     LINE,
     "■ 書き方（長いので、パートに分けて書く）",
     LINE,
-    "・この章は全部で" + tg.text + "です。1回に4,500〜5,500字ずつ、全部で" + tg.parts + "に分けて書いてください。上限をこえないように、全体の文字数も意識して書いてください。",
+    "・この章は全部で" + tg.text + "です。1回に" + tg.perPart + "ずつ、全部で" + tg.parts + "に分けて書いてください。上限をこえないように、全体の文字数も意識して書いてください。",
     "・いちばん最初に「全部で○パートに分けます」と1行で書いてから、パート1を書き始めてください。",
     "・1パート書いたら、最後に「パート○まで書きました。続きを書きますか？」と1行で書いて止まってください。",
     "・私が「続き」と送ったら、前の文章を書き直さず、止まった所の続きから書いてください。",
@@ -1727,8 +1766,103 @@ function normalizeBreaks(text){
     // 「・」や「1.」の箇条の前（空白のあとにあるもの）
     br(/([^\s])[ \t　]+((?:[・•]|[0-9０-９]{1,2}[\.．])\s?(?=[^\s]))/g, function(m, a, b){ return a + "\n" + b; });
   }
+  // 部品の中の区切り（「・」「STEP2：」「2日目：」「判定：」など）と、改行のない長い本文
+  var sp = splitInsideBlocks(t);
+  t = sp.text;
+  added += sp.added;
   return { text: t, flat: flat, added: added };
 }
+// =====================================================
+// 部品の中で、区切りの前に改行を入れ直す
+// （AIが「・A・B」「STEP1：〜 STEP2：〜」のように1行につなげて書くと、部品がこわれて文章になってしまうため）
+// 部品の中だけで区切るので、ふつうの本文の「占い・ヒーリング」などは分けない
+// =====================================================
+var NUM_ITEM = "(?<![0-9０-９])[0-9０-９]{1,2}[\\.．](?![0-9０-９])";
+function blockSplitters(){
+  // 「体験セッションでお話しすること」は、呼び方からひとまとまり（途中で分けない）
+  var talk = "(?:" + [cname(), "無料個別相談", "体験セッション", "説明会", "個別相談"].map(function(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("|") + ")でお話しすること";
+  return {
+    "表紙": "(?:サブタイトル|(?<!サブ)タイトル|(?<![序第0-9０-９一二三四])章)[：:]",
+    "比較": "[・•]",
+    "悩み": "[・•]",
+    "チェック": "[・•]|判定[：:]",
+    "ステップ": "STEP\\s*[0-9０-９]+\\s*[：:]",
+    "受け取り方": "STEP\\s*[0-9０-９]+\\s*[：:]|注意[：:]",
+    "チャレンジ表": "[0-9０-９]+\\s*日目\\s*[：:]",
+    // 「申込方法」の中の「方法」、「所要時間」の中の「時間」などで分けないよう、言葉のとちゅうでは区切らない
+    "案内": "(?:上の小さい文字|(?<!サブ)タイトル|申込方法|(?<![ぁ-んァ-ヶー一-龠々])(?:料金|内容|時間|方法|人数|場所|対象|日時)|" + talk + ")[：:]|" + NUM_ITEM + "|[・•]|" +
+      "(?<=[ \\t\\u3000])[^\\s：:。、]{1,8}[：:]",   // 空白のあとの「〇〇：」も項目名とみなす（例：所要時間：60分）
+    "書き込み": "(?:質問|行数)[：:]",
+    "期限": "(?:日数|ラベル|案内)[：:]",
+    "強調": "タイトル[：:]|" + NUM_ITEM,
+    "自己紹介": "名前[：:]",
+    "私自身の場合": "タイトル[：:]",
+    "締め": "タイトル[：:]|名前[：:]",
+    "悪循環": "中心[：:]|" + NUM_ITEM,
+    "ロードマップ": "[・•]|" + NUM_ITEM + "|(?:最初の[^：:\\s。、]{1,6}|[0-9０-９一二三四五六七八九十半]+\\s*(?:日|週間|か月|ヶ月|カ月|年)(?:後|目)?|半年後?)[：:]"
+  };
+}
+// 本文の段落にしてよい部品（長い文を「。」で分ける）
+var PROSE_BLOCKS = ["強調", "自己紹介", "私自身の場合", "締め"];
+// 改行のない長い本文を、「。」のあとで2〜3文ずつの段落に分ける（「」の中の「。」では分けない）
+function splitLongProse(line){
+  var s = trimAll(line);
+  if (s.length <= 200 || (s.match(/。/g) || []).length < 4) return null;
+  var sentences = [], cur = "", depth = 0;
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charAt(i);
+    cur += c;
+    if (c === "「" || c === "『") depth++;
+    if ((c === "」" || c === "』") && depth > 0) depth--;
+    if (depth === 0 && /[。！？]/.test(c)) { sentences.push(cur); cur = ""; }
+  }
+  if (cur) sentences.push(cur);
+  var paras = [], p = "";
+  sentences.forEach(function(x){
+    x = trimAll(x);
+    if (p && (p + x).length > 130) { paras.push(p); p = ""; }
+    p += x;
+  });
+  if (p) paras.push(p);
+  return paras.length > 1 ? paras : null;
+}
+function splitInsideBlocks(text){
+  var S = blockSplitters(), rows = text.split("\n"), out = [], cur = null, added = 0;
+  rows.forEach(function(row){
+    var t = trimAll(row);
+    var open = t.match(/^【([^】\/]+)】$/), close = t.match(/^【\/([^】]+)】$/);
+    if (open && BLOCK_TAGS.indexOf(open[1].trim()) >= 0) { cur = open[1].trim(); out.push(row); return; }
+    if (close) { cur = null; out.push(row); return; }
+    var pieces = [row];
+    if (cur && S[cur]) {
+      // 区切りの前で改行（行の頭にあるものはそのまま）
+      var re = new RegExp("([^\\s])[ \\t\\u3000]*(?=(?:" + S[cur] + "))", "g");
+      var nt = row.replace(re, function(m, a){ added++; return a + "\n"; });
+      pieces = nt.split("\n");
+      // 長いタイトル：タイトルと本文がつながっているときは、最初の「。」か空白で切る
+      pieces = [].concat.apply([], pieces.map(function(pc){
+        var m = trimAll(pc).match(/^(タイトル[：:])(.{12,}?)(。|[ \t　]+)(.+)$/);
+        if (m && trimAll(pc).length > 45 && PROSE_BLOCKS.indexOf(cur) >= 0) { added++; return [m[1] + m[2] + (m[3] === "。" ? "。" : ""), m[4]]; }
+        return [pc];
+      }));
+    }
+    // 改行のない長い本文（部品の外、または文章を書く部品の中）
+    if (!cur || PROSE_BLOCKS.indexOf(cur) >= 0) {
+      pieces = [].concat.apply([], pieces.map(function(pc){
+        if (/^【/.test(trimAll(pc))) return [pc];
+        var paras = splitLongProse(pc);
+        if (!paras) return [pc];
+        added += paras.length - 1;
+        var r = [];
+        paras.forEach(function(x, k){ if (k) r.push(""); r.push(x); });
+        return r;
+      }));
+    }
+    out.push.apply(out, pieces);
+  });
+  return { text: out.join("\n"), added: added };
+}
+
 // 保存されている原稿（前のバージョンで貼ったもの）も直しておく
 function normalizeStoredManuscripts(){
   var changed = false;
@@ -1759,7 +1893,7 @@ function manuscriptChars(text){
 }
 // 目標と今の文字数を見て、ひとこと
 function charStatus(idx){
-  var tg = CH_TARGETS[idx], text = answers["m" + idx] || "";
+  var tg = chTarget(idx), text = answers["m" + idx] || "";
   if (!text.trim()) return null;
   var now = manuscriptChars(text), msg = "", cls = "ok";
   if (now > tg.max) { msg = "少し長めです（上限 " + tg.max.toLocaleString() + "字）"; cls = "yk"; }
@@ -2553,7 +2687,7 @@ function pasteSummaryHtml(){
       else s = (c.warns.length ? '<span class="ng">⚠ 記号 ' + c.warns.length + "か所</span>" : '<span class="ok">✓ 記号OK</span>') +
         (c.ykCount ? '　<span class="yk">（要確認） ' + c.ykCount + "か所</span>" : "");
       var cs = charStatus(i);
-      if (cs) s += '　<span class="chars-mini">' + cs.now.toLocaleString() + "字／目標" + CH_TARGETS[i].goal.toLocaleString() + "字</span>";
+      if (cs) s += '　<span class="chars-mini">' + cs.now.toLocaleString() + "字／目標" + chTarget(i).goal.toLocaleString() + "字</span>";
       var rmN = stripChatter(answers["m" + i] || "").removed.length;
       if (rmN) s += '　<span class="chars-mini yk">（AIのあいさつなど' + rmN + "行あり）</span>";
       return "<li><b>" + nm + "</b>：" + s + "</li>";
@@ -2607,7 +2741,7 @@ function renderPaste(){
     '<div class="summary-box" id="pasteSummary">' + pasteSummaryHtml() + "</div>";
   CH_NAMES.forEach(function(nm, i){
     html += '<div class="paste-box"><h3>' + nm + 'の原稿</h3>' +
-      (CH_TARGETS[i].parts ? '<div class="q-hint">この章は長いので、AIが' + CH_TARGETS[i].parts + 'に分けて書きます。パートが分かれたときは、順番に下へ貼り足してください（「パート○まで書きました」などの行は、自動で取りのぞきます）。</div>' : "") +
+      (chTarget(i).parts ? '<div class="q-hint">この章は長いので、AIが' + chTarget(i).parts + 'に分けて書きます。パートが分かれたときは、順番に下へ貼り足してください（「パート○まで書きました」などの行は、自動で取りのぞきます）。</div>' : "") +
       '<textarea class="paste-text" data-id="m' + i + '" placeholder="ここに' + nm + 'の原稿を貼りつけます">' + esc(answers["m" + i] || "") + "</textarea>" +
       '<div class="status" id="st' + i + '">' + pasteStatusHtml(i) + "</div></div>";
   });
@@ -2724,6 +2858,16 @@ card.addEventListener("click", function(e){
   if (t.hasAttribute("data-go")) { go(Number(t.getAttribute("data-go"))); return; }
   if (t.id === "btnIconOff") { delete answers.dIcon; save(); renderFinish(); return; }
   if (t.id === "btnPrintChap") printChapter();
+});
+
+// 文字数のモードを変えたら、指示文を作り直す
+card.addEventListener("change", function(e){
+  if (e.target.name !== "volume") return;
+  answers.volume = e.target.value;
+  save();
+  var y = window.scrollY;
+  renderPrompts();
+  window.scrollTo(0, y);
 });
 
 // あいさつの一覧を開いた・閉じたを覚えておく（消す・残すを押しても閉じないように）

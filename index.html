@@ -125,6 +125,10 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
 .status .chars.ok{color:#2f7d32}
 .status .chars.yk{color:#8a5a00}
 .chars-mini{font-size:13px;color:#666}
+.removed{margin-top:6px;font-size:13px;color:#555;background:#f6f6f6;border-radius:8px;padding:6px 10px}
+.removed summary{cursor:pointer;color:#4a5a58;font-weight:bold}
+.removed ul{padding-left:20px;margin-top:4px;color:#666}
+.removed-note{font-size:12px;color:#888;margin-top:4px}
 .mini-btn{font-family:var(--font);font-size:12px;font-weight:bold;background:#fff;color:var(--brand-dark);border:1.5px solid var(--brand);border-radius:999px;padding:2px 10px;margin:2px 0;cursor:pointer;vertical-align:1px}
 .mini-btn:hover{background:var(--brand-pale)}
 .mini-btn.done{background:#e98b2a;border-color:#e98b2a;color:#fff}
@@ -416,7 +420,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 
 <script>
 // ツールのバージョン（直して配りなおすときは、ここの数字を上げる）
-var APP_VERSION = "ver1.5";
+var APP_VERSION = "ver1.6";
 document.getElementById("appVersion").textContent = APP_VERSION;
 
 // 「個別相談で得られること」の選択肢
@@ -1185,6 +1189,11 @@ var SYMBOL_RULES = [
   "名前：（名前）",
   "【/締め】",
   "",
+  "▼原稿の目印（本文の最初と最後。パートに分けるときはパートごと）",
+  "【原稿ここから】",
+  "（ここに原稿の本文と記号）",
+  "【原稿ここまで】",
+  "",
   "▼ページの区切り",
   "【改ページ】"
 ].join("\n");
@@ -1371,6 +1380,13 @@ function buildPrompt(n){
     "下の「回答」をもとに、「" + label + "」の原稿を書いてください。",
     "文字数の目安は" + tg.text + "です（記号は数えません）。",
     "",
+    LINE,
+    "■ 原稿の目印（かならず守ってください）",
+    LINE,
+    "・原稿の本文は、【原稿ここから】の1行から書き始め、【原稿ここまで】の1行で終えてください。",
+    "・「承知しました」「全部で○パートに分けます」「パート○まで書きました。続きを書きますか？」などのあいさつや質問は、かならず目印の外（【原稿ここから】の前か、【原稿ここまで】のあと）に書いてください。",
+    "・目印の内側には、原稿の本文と記号だけを書きます（目印の内側だけが、そのまま特典になります）。",
+    ""
   ].concat(partBlock(n - 1)).concat([
     LINE,
     "■ 守ってほしいルール",
@@ -1430,7 +1446,7 @@ function partBlock(idx){
     "・1パート書いたら、最後に「パート○まで書きました。続きを書きますか？」と1行で書いて止まってください。",
     "・私が「続き」と送ったら、前の文章を書き直さず、止まった所の続きから書いてください。",
     "・記号の部品（【強調】〜【/強調】など）は、パートの境目で途中で切らないでください。部品はかならず1つのパートの中で、始まりから終わりまで書きます。",
-    "・上の2つの1行（「全部で○パート…」「パート○まで書きました…」）は、原稿とは別の行に書いてください（ツールが自動で取りのぞきます）。",
+    "・パートごとに、原稿の本文を【原稿ここから】と【原稿ここまで】ではさんでください。上の2つの1行（「全部で○パート…」「パート○まで書きました…」）は、かならず目印の外に書いてください。",
     "・文字数は、同じ話のくり返しで増やさないでください。次の材料で厚みを出してください：" + CH_MATERIALS[idx].replace(/／/g, "、"),
     ""
   ];
@@ -1447,7 +1463,8 @@ var LINE_TAGS = ["章","見出し","小見出し","改ページ"];
 function trimAll(s){ return s.replace(/^[\s　]+|[\s　]+$/g, ""); }
 
 function parseManuscript(text){
-  var L = text.replace(/\r\n?/g, "\n").split("\n").map(trimAll);
+  // AIのあいさつや目印の外の行は、空の行として読む（行番号はそのまま）
+  var L = stripChatter(text).text.split("\n").map(trimAll);
   // 1行ずつ { s: 文字, n: 原稿の何行目か（0から） } の形で持つ。完成形の画面で直した文字を、原稿の同じ行に戻すため
   var blocks = [], warns = [], plain = [], i = 0;
   function flushPlain(){
@@ -1517,7 +1534,7 @@ function parseManuscript(text){
   return { blocks: blocks, warns: warns };
 }
 
-function countYk(text){ return (text.match(/（要確認|\(要確認/g) || []).length; }
+function countYk(text){ return (stripChatter(text).text.match(/（要確認|\(要確認/g) || []).length; }
 
 // パート分けの合図の1行か
 var PART_NUM = "[0-9０-９一二三四五六七八九十]+";
@@ -1530,9 +1547,65 @@ function isPartLine(s){
     new RegExp("^[（(【\\[]?\\s*パート\\s*" + PART_NUM + "\\s*([/／]\\s*" + PART_NUM + ")?\\s*[）)】\\]]?[：:]?$").test(s);
 }
 
-// 原稿の文字数（記号・空白・パート分けの合図の行は数えない）
+// =====================================================
+// AIのあいさつ・質問の行を取りのぞく
+// ・【原稿ここから】〜【原稿ここまで】があれば、その内側だけを原稿として使う（パートが何個あってもつなげる）
+// ・目印がなければ、あいさつ・質問らしい行だけを取りのぞく
+// ・貼った原稿そのものは書きかえない（取りのぞいた行は空の行にして、行番号をずらさない）
+// =====================================================
+var MARK_FROM = /^【\s*原稿ここから\s*】$/, MARK_TO = /^【\s*原稿ここまで\s*】$/;
+var CHATTER_WORDS = "(全部で\\s*" + PART_NUM + "\\s*(つの)?パート|パート\\s*" + PART_NUM + "\\s*(まで|を)書きました|続きを書きますか|続きを書きます|承知しました|以下が原稿です|いかがでしょうか)";
+// 「いかがでしょうか」は本文でもよく使うので、原稿そのものについて話している短い行だけを取りのぞく
+var CHATTER_STRONG = "(全部で\\s*" + PART_NUM + "\\s*(つの)?パート|パート\\s*" + PART_NUM + "\\s*(まで|を)書きました|続きを書きますか|続きを書きます|承知しました|以下が原稿です)";
+var META_TALK = /(原稿|パート|この章|第[0-9０-９一二三]章|完成|修正|書き直|ご希望|ご要望)/;
+function isChatter(s){
+  s = trimAll(s || "");
+  if (!s) return false;
+  if (isPartLine(s) || /^```/.test(s)) return true;
+  if (new RegExp("^[「『]?" + CHATTER_WORDS).test(s)) return true;                  // その言葉で始まる行
+  if (s.length > 60) return false;                                                   // 長い行は本文とみなす
+  if (new RegExp(CHATTER_STRONG).test(s)) return true;                               // 途中に含む短い行
+  return /いかがでしょうか/.test(s) && META_TALK.test(s);                            // 「いかがでしょうか」は、原稿の話をしているときだけ
+}
+var stripCache = { src: null, out: null };
+function stripChatter(text){
+  text = text || "";
+  if (stripCache.src === text) return stripCache.out;
+  var rows = text.replace(/\r\n?/g, "\n").split("\n"), keep = rows.map(function(){ return true; }), removed = [];
+  function drop(i){ keep[i] = false; if (trimAll(rows[i])) removed.push({ line: i + 1, text: trimAll(rows[i]) }); }
+  var hasMarks = rows.some(function(s){ return MARK_FROM.test(trimAll(s)); });
+  if (hasMarks) {
+    // 目印の外側を、ひとまとまりずつ見る
+    var inside = false, outside = [];
+    var flushOutside = function(){
+      if (!outside.length) return;
+      // 外側に【見出し】などの記号がある → 目印を付け忘れた原稿とみなして残し、あいさつだけ取る
+      var looksLikeBody = outside.some(function(i){ var m = trimAll(rows[i]).match(/^【([^】\/]+)】/); return m && (BLOCK_TAGS.indexOf(m[1].trim()) >= 0 || LINE_TAGS.indexOf(m[1].trim()) >= 0); });
+      outside.forEach(function(i){ if (!looksLikeBody || isChatter(rows[i])) drop(i); });
+      outside = [];
+    };
+    rows.forEach(function(s, i){
+      var t = trimAll(s);
+      if (MARK_FROM.test(t)) { flushOutside(); inside = true; keep[i] = false; return; }
+      if (MARK_TO.test(t)) { inside = false; keep[i] = false; return; }
+      if (inside) { if (isPartLine(t) || /^```/.test(t)) drop(i); }
+      else outside.push(i);
+    });
+    flushOutside();
+  } else {
+    rows.forEach(function(s, i){
+      if (MARK_TO.test(trimAll(s))) { keep[i] = false; return; }   // 「ここまで」だけが残っていても、記号のまちがいにしない
+      if (isChatter(s)) drop(i);
+    });
+  }
+  var out = { text: rows.map(function(s, i){ return keep[i] ? s : ""; }).join("\n"), removed: removed };
+  stripCache = { src: text, out: out };
+  return out;
+}
+
+// 原稿の文字数（記号・空白・取りのぞいた行は数えない）
 function manuscriptChars(text){
-  return (text || "").split(/\r?\n/).filter(function(s){ return !isPartLine(s); }).join("")
+  return stripChatter(text).text
     .replace(/【\/?[^】]{1,12}】/g, "").replace(/[\s\u3000]/g, "").length;
 }
 // 目標と今の文字数を見て、ひとこと
@@ -1551,7 +1624,7 @@ function charStatus(idx){
 // （要確認）がある行の一覧：何行目に、どんな文章か
 function ykLines(text){
   var out = [];
-  text.replace(/\r\n?/g, "\n").split("\n").forEach(function(s, i){
+  stripChatter(text).text.split("\n").forEach(function(s, i){
     if (/（要確認|\(要確認/.test(s)) out.push({ line: i + 1, text: trimAll(s) });
   });
   return out;
@@ -2306,6 +2379,14 @@ function pasteStatusHtml(idx){
   if (c.empty) return '<span style="color:#888">まだ貼られていません</span>';
   var cs = charStatus(idx);
   if (cs) h += cs.html;
+  // 自動で取りのぞいた行（押すと中身を見られる）
+  var rm = stripChatter(answers["m" + idx] || "").removed;
+  if (rm.length) {
+    h += '<details class="removed"><summary>AIのあいさつなど ' + rm.length + " 行を自動で取りのぞきました（押すと中身を確認できます）</summary><ul>" +
+      rm.slice(0, 30).map(function(x){ return "<li>" + x.line + "行目：" + esc(x.text.length > 70 ? x.text.slice(0, 70) + "…" : x.text) + "</li>"; }).join("") +
+      (rm.length > 30 ? "<li>ほか " + (rm.length - 30) + " 行</li>" : "") +
+      '</ul><div class="removed-note">原稿の欄の中身はそのままです。まちがって消えている行があれば、その行の言い方を少し変えてください。</div></details>';
+  }
   if (c.warns.length) h += '<span class="ng">⚠ ' + c.warns.length + "か所、記号を確認してください</span>" + warnListHtml(idx, c.warns);
   else h += '<span class="ok">✓ 記号はOKです</span>';
   if (c.ykCount) h += '<div class="yk">（要確認）が ' + c.ykCount + " か所あります（行番号を押すと、その場所に移動します）</div>" + ykListHtml(idx, c.yk);
@@ -2322,6 +2403,8 @@ function pasteSummaryHtml(){
         (c.ykCount ? '　<span class="yk">（要確認） ' + c.ykCount + "か所</span>" : "");
       var cs = charStatus(i);
       if (cs) s += '　<span class="chars-mini">' + cs.now.toLocaleString() + "字／目標" + CH_TARGETS[i].goal.toLocaleString() + "字</span>";
+      var rmN = stripChatter(answers["m" + i] || "").removed.length;
+      if (rmN) s += '　<span class="chars-mini">（あいさつなど' + rmN + "行を取りのぞき）</span>";
       return "<li><b>" + nm + "</b>：" + s + "</li>";
     }).join("") + '</ul><div class="summary-time" id="summaryTime"></div>';
 }

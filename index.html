@@ -125,6 +125,8 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
 .status .chars.ok{color:#2f7d32}
 .status .chars.yk{color:#8a5a00}
 .chars-mini{font-size:13px;color:#666}
+.fixnote{font-size:13px;color:#4a5a58;background:#eef6f5;border-radius:8px;padding:6px 10px;margin-bottom:6px}
+.fixnote.ng{color:#8a5a00;background:#fff6d9;font-weight:bold}
 .removed{margin-top:6px;font-size:13px;color:#555;background:#f6f6f6;border-radius:8px;padding:6px 10px}
 .removed summary{cursor:pointer;color:#4a5a58;font-weight:bold}
 .removed ul{padding-left:20px;margin-top:4px;color:#666}
@@ -420,7 +422,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 
 <script>
 // ツールのバージョン（直して配りなおすときは、ここの数字を上げる）
-var APP_VERSION = "ver1.6";
+var APP_VERSION = "ver1.7";
 document.getElementById("appVersion").textContent = APP_VERSION;
 
 // 「個別相談で得られること」の選択肢
@@ -691,6 +693,8 @@ function render(){
   preview.classList.remove("show");
   // 「元に戻す」は仕上げの画面の中だけ（原稿の欄で直したあとに古い中身へ戻さないように）
   if (!step.finish) undoStack = [];
+  // 前のバージョンで貼った原稿も、改行が消えていたら入れ直しておく
+  if (step.paste || step.finish) normalizeStoredManuscripts();
   if (step.prompts) renderPrompts();
   else if (step.paste) renderPaste();
   else if (step.finish) renderFinish();
@@ -729,6 +733,12 @@ card.addEventListener("input", function(e){
       function(el){ return el.value; });
   } else if (id) {
     answers[id] = e.target.value;
+    // 原稿の欄に貼りつけたとき：消えた改行を入れ直す（打ちこんでいる最中は動かさない）
+    if (/^m\d$/.test(id) && /^insertFrom(Paste|Drop)/.test(e.inputType || "")) {
+      var nb = normalizeBreaks(e.target.value);
+      answers["fix" + id.charAt(1)] = nb.added || nb.flat ? { added: nb.added, flat: nb.flat } : null;
+      if (nb.text !== e.target.value) { e.target.value = nb.text; answers[id] = nb.text; }
+    }
   } else {
     return;
   }
@@ -1571,7 +1581,7 @@ var stripCache = { src: null, out: null };
 function stripChatter(text){
   text = text || "";
   if (stripCache.src === text) return stripCache.out;
-  var rows = text.replace(/\r\n?/g, "\n").split("\n"), keep = rows.map(function(){ return true; }), removed = [];
+  var rows = text.replace(/\r\n?|\u2028|\u2029|\u0085/g, "\n").split("\n"), keep = rows.map(function(){ return true; }), removed = [];
   function drop(i){ keep[i] = false; if (trimAll(rows[i])) removed.push({ line: i + 1, text: trimAll(rows[i]) }); }
   var hasMarks = rows.some(function(s){ return MARK_FROM.test(trimAll(s)); });
   if (hasMarks) {
@@ -1601,6 +1611,53 @@ function stripChatter(text){
   var out = { text: rows.map(function(s, i){ return keep[i] ? s : ""; }).join("\n"), removed: removed };
   stripCache = { src: text, out: out };
   return out;
+}
+
+// =====================================================
+// 消えた改行を入れ直す
+// ・特別な改行の文字（\r\n、\r、U+2028、U+2029 など）は、ふつうの改行にそろえる
+// ・記号の前（と、終わりの記号・部品の始まりの記号のあと）で改行する。【マーカー】は文の途中の記号なので、さわらない
+// ・改行がとても少ない原稿のときだけ、「タイトル：」などの項目名や「・」「1.」の箇条の前でも改行する
+//   （ふつうの原稿でこれをすると「第1章：」のような本文まで分けてしまうため）
+// =====================================================
+var FIELD_NAMES = "(?:サブタイトル|(?<!サブ)タイトル|名前|(?<![第0-9０-９一二三四五六七八九十])章|注意|日数|ラベル|(?<!ご)案内|質問|行数|中心|判定|上の小さい文字|STEP\\s*[0-9０-９]+|[0-9０-９]+\\s*日目)";
+function normalizeBreaks(text){
+  var t = (text || "").replace(/\r\n?|\u2028|\u2029|\u0085/g, "\n");
+  var lines = t.split("\n").filter(function(s){ return trimAll(s); }).length;
+  var tags = (t.match(/【\/?[^】\n]{1,12}】/g) || []).filter(function(s){ return !/マーカー/.test(s); }).length;
+  var flat = (tags >= 10 && lines <= 5) || (tags >= 3 && lines <= 2);
+  var all = BLOCK_TAGS.concat(LINE_TAGS, ["原稿ここから", "原稿ここまで", "Aさん", "Bさん"]).join("|");
+  var openBlocks = BLOCK_TAGS.concat(["原稿ここから", "原稿ここまで", "改ページ"]).join("|");
+  var added = 0;
+  function br(re, fn){ t = t.replace(re, function(){ added++; return fn.apply(null, arguments); }); }
+  // 記号の前
+  br(new RegExp("([^\\s])[ \\t\\u3000]*(【\\/?(?:" + all + ")】)", "g"), function(m, a, tag){ return a + "\n" + tag; });
+  // 終わりの記号・部品の始まりの記号のあと
+  br(new RegExp("(【\\/(?:" + all + ")】|【(?:" + openBlocks + ")】)[ \\t\\u3000]*([^\\s])", "g"), function(m, tag, b){ return tag + "\n" + b; });
+  if (flat) {
+    // 見出しは、最初の空白までを見出しとみなす
+    br(/(【(?:見出し|小見出し|章)】[^\s\n【]+)[ \t　]+(?=[^\s])/g, function(m, h){ return h + "\n"; });
+    // 部品の中の項目名の前
+    br(new RegExp("([^\\s])[ \\t\\u3000]*(" + FIELD_NAMES + "[：:])", "g"), function(m, a, f){ return a + "\n" + f; });
+    // 「・」や「1.」の箇条の前（空白のあとにあるもの）
+    br(/([^\s])[ \t　]+((?:[・•]|[0-9０-９]{1,2}[\.．])\s?(?=[^\s]))/g, function(m, a, b){ return a + "\n" + b; });
+  }
+  return { text: t, flat: flat, added: added };
+}
+// 保存されている原稿（前のバージョンで貼ったもの）も直しておく
+function normalizeStoredManuscripts(){
+  var changed = false;
+  [0, 1, 2, 3].forEach(function(i){
+    var text = answers["m" + i];
+    if (!text) return;
+    var nb = normalizeBreaks(text);
+    if (nb.text !== text) {
+      answers["m" + i] = nb.text;
+      answers["fix" + i] = { added: nb.added, flat: nb.flat };
+      changed = true;
+    }
+  });
+  if (changed) save();
 }
 
 // 原稿の文字数（記号・空白・取りのぞいた行は数えない）
@@ -2377,6 +2434,14 @@ function ykListHtml(idx, list){
 function pasteStatusHtml(idx){
   var c = checkChapter(idx), h = "";
   if (c.empty) return '<span style="color:#888">まだ貼られていません</span>';
+  // 改行を入れ直したとき
+  var fx = answers["fix" + idx];
+  if (fx && fx.flat) {
+    h += '<div class="fixnote ng">⚠ 改行が消えているようです。AIの返事の下にある「コピー」のマークで貼り直すと、きれいに仕上がります。' +
+      "（記号の前などで、改行を " + fx.added + " か所入れ直しました）</div>";
+  } else if (fx && fx.added) {
+    h += '<div class="fixnote">記号の前などで、改行を ' + fx.added + " か所入れ直しました。</div>";
+  }
   var cs = charStatus(idx);
   if (cs) h += cs.html;
   // 自動で取りのぞいた行（押すと中身を見られる）

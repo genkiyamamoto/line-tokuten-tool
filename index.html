@@ -31,6 +31,7 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
 .intro-title{font-weight:bold;color:var(--brand-dark);font-size:15px;margin-bottom:2px}
 .intro-steps{list-style:none;font-size:14px;line-height:1.8}
 .intro-steps b{color:var(--brand-dark);margin-right:4px}
+.intro-sub{font-size:13px;color:#666;padding-left:1.4em}
 .intro-notes{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);font-size:13px;color:#555}
 .credit{text-align:center;font-size:12px;color:#999;padding:24px 16px 28px}
 
@@ -56,6 +57,14 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
 .demo-btn:hover{background:#d4761a}
 .demo-text{font-size:13px;color:#6b4a00;flex:1;min-width:200px}
 .demo-done{color:#2f7d32}
+.demo-choices{display:flex;flex-wrap:wrap;gap:10px;width:100%}
+.demo-choices[hidden]{display:none}
+.demo-choice{flex:1;min-width:200px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;font-family:var(--font);font-size:15px;background:#fff;border:1.5px solid #e9a23b;border-radius:10px;padding:10px 14px;cursor:pointer;color:#5a3c00}
+.demo-choice:hover{background:#fff3df}
+.demo-choice small{font-size:12px;color:#8a6a30}
+.swatches{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-weight:normal;font-size:12px;color:#666}
+.swatch{width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px #ccc;cursor:pointer;padding:0}
+.swatch.on{box-shadow:0 0 0 2.5px #333}
 .q{margin-top:26px}
 .q-label{display:block;font-weight:bold;font-size:17px;margin-bottom:8px}
 .q-label .num{display:inline-block;background:var(--brand);color:#fff;border-radius:999px;font-size:13px;padding:0 10px;margin-right:8px;vertical-align:2px}
@@ -112,6 +121,10 @@ body{font-family:var(--font);color:var(--text);background:var(--bg);line-height:
 .status .yk{color:#8a5a00;font-weight:bold}
 .status ul{padding-left:20px;color:#8c1d18}
 .status .yk-list{color:#6b4a00}
+.status .chars{margin-bottom:4px;font-size:14px}
+.status .chars.ok{color:#2f7d32}
+.status .chars.yk{color:#8a5a00}
+.chars-mini{font-size:13px;color:#666}
 .mini-btn{font-family:var(--font);font-size:12px;font-weight:bold;background:#fff;color:var(--brand-dark);border:1.5px solid var(--brand);border-radius:999px;padding:2px 10px;margin:2px 0;cursor:pointer;vertical-align:1px}
 .mini-btn:hover{background:var(--brand-pale)}
 .mini-btn.done{background:#e98b2a;border-color:#e98b2a;color:#fff}
@@ -173,6 +186,7 @@ html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .d-h3::before{content:"";position:absolute;left:0;top:.55em;width:3.5mm;height:3.5mm;border-radius:50%;background:var(--brand)}
 .d-marker{background:linear-gradient(transparent 60%,var(--brand-light) 60%);font-weight:bold}
 .d-yk{background:#ffe680;color:#7a4d00;font-weight:bold;padding:0 1mm;border-radius:1mm}
+.d-clip{overflow:hidden}
 .d-flash{outline:3px solid #e9a23b;outline-offset:2px;border-radius:2px}
 .d-bad{background:#fdecea;color:#b3261e;border:1px dashed #e8a29b;border-radius:1.5mm;padding:1mm 3mm}
 .d-list{margin:0 0 3mm;padding-left:7mm}
@@ -367,6 +381,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
       <li><b>①</b> 質問に答える（分からない所は空欄でOK）</li>
       <li><b>②</b> できあがった「指示文」をコピーして、お使いのClaudeやChatGPT（無料版でもOK）に貼る</li>
       <li><b>③</b> AIが書いた原稿を貼り戻して、色とアイコンを選び、PDFで保存する</li>
+      <li class="intro-sub">※ 長い章は、AIが何回かに分けて書きます。「続きを書きますか？」と聞かれたら「続き」と送ってください。</li>
     </ol>
     <div class="intro-notes">
       <span class="intro-note">🔒 入力した内容や画像は、あなたのパソコンの中だけに保存され、外には送られません。</span>
@@ -401,7 +416,7 @@ table.d-chal{width:100%;border-collapse:collapse;margin:4mm 0 5mm;font-size:9.5p
 
 <script>
 // ツールのバージョン（直して配りなおすときは、ここの数字を上げる）
-var APP_VERSION = "ver1.4";
+var APP_VERSION = "ver1.5";
 document.getElementById("appVersion").textContent = APP_VERSION;
 
 // 「個別相談で得られること」の選択肢
@@ -563,8 +578,12 @@ function renderQuestions(step){
   // 1画面目だけ：勉強会のデモ・練習用に、例をまとめて入れるボタン
   if (stepIndex === 0) {
     html += '<div class="demo-box"><button class="demo-btn" id="btnDemo">例を入れて試してみる</button>' +
-      '<span class="demo-text">' + (demoJustFilled ? '<b class="demo-done">✓ 例を入れました。「次へ」で進んでみてください。</b>' :
-        "勉強会の練習用です。架空の整理収納アドバイザー（春野 ゆい／くらし整えラボ）の答えが入ります。") + "</span></div>";
+      '<span class="demo-text">' + (demoJustFilled ? '<b class="demo-done">✓ 「' + esc(demoJustFilled) + '」の例を入れました。「次へ」で進んでみてください。</b>' :
+        "勉強会の練習用です。架空の人の答えが入ります（2つの例から選べます）。") + "</span>" +
+      '<div class="demo-choices" id="demoChoices" hidden>' +
+        EXAMPLE_LIST.map(function(ex){
+          return '<button class="demo-choice" data-example="' + ex.key + '"><b>' + esc(ex.label) + "</b><small>" + esc(ex.who) + "</small></button>";
+        }).join("") + "</div></div>";
     demoJustFilled = false;
   }
   step.qs.forEach(function(q, i){
@@ -598,6 +617,7 @@ function renderPrompts(){
     '<li>決まったメインタイトルと4つの章タイトルを、下の5つの欄に貼りつけます。</li>' +
     '<li>「1番」〜「4番」を、<b>1つずつ新しいチャット</b>に貼りつけて送ると、各章の原稿ができます。</li>' +
     '<li>原稿が途中で止まったら、同じチャットで「続き」と送ってください。</li>' +
+    '<li>第1〜3章は長いので、AIが何回かに分けて書きます。「続きを書きますか？」と聞かれたら「続き」と送ってください。</li>' +
     '</ol></div>';
   if (blanks > 0) {
     html += '<div class="blank-note">空欄の質問が ' + blanks + ' 個あります。その部分は、原稿に「（要確認）」と出ます。あとで書き足せばOKです。</div>';
@@ -621,13 +641,13 @@ function renderPrompts(){
   });
   html += '</div></div>';
 
-  html += promptBoxHtml(1, "序章の原稿", "はじめに・自己紹介・全体像・本当の原因・受け取り方（約3,500字）");
+  html += promptBoxHtml(1, "序章の原稿", "はじめに・自己紹介・全体像・本当の原因・受け取り方（約2,000字）");
   html += '</div>';
-  html += promptBoxHtml(2, "第1章の原稿", "AさんBさんの比較・セルフチェック・悪循環・3ステップ・STEP1（約5,000字）");
+  html += promptBoxHtml(2, "第1章の原稿", "AさんBさんの比較・セルフチェック・悪循環・3ステップ・STEP1（約10,000字・2パートに分けて書きます）");
   html += '</div>';
-  html += promptBoxHtml(3, "第2章の原稿", "最初のゴール・秘訣3つ・書き込みワーク（約5,000字）");
+  html += promptBoxHtml(3, "第2章の原稿", "最初のゴール・秘訣3つ・書き込みワーク（約10,000字・2パートに分けて書きます）");
   html += '</div>';
-  html += promptBoxHtml(4, "第3章の原稿", "その先の毎日・ロードマップ・無料個別相談の案内（約5,000字）");
+  html += promptBoxHtml(4, "第3章の原稿", "その先の毎日・ロードマップ・無料個別相談の案内（約18,000字・3〜4パートに分けて書きます）");
   html += '</div>';
   card.innerHTML = html;
   updatePrompts();
@@ -719,24 +739,74 @@ card.addEventListener("input", function(e){
 // 例を入れて試してみる（薄い文字で出している例を、そのまま答えに入れる）
 // =====================================================
 var demoJustFilled = false;
-function fillExample(){
-  if (!confirm("今入っている答えは、例で上書きされます。よろしいですか？")) return;
+
+// 占い師（伴走サポート）の例。すべて架空。数字には「※架空の例です」をつける
+var EXAMPLE_URANAI = {
+  name: "月野 しずく",
+  yago: "星読みサロン Luna",
+  katagaki: "占い師・人生の伴走サポーター",
+  pronoun: "わたし",
+  service: "仕事・恋愛・家族のことで迷いが続いている30〜40代の女性に、星読みと伴走サポートで、自分で決めて進める毎日をお手伝いしています。",
+  target: "仕事・恋愛・家族のことで迷いが続いている30〜40代の女性",
+  effort: "占いを受けるとその場は気持ちが軽くなるのに、毎日の生活に戻ると、また同じことで迷ってしまう",
+  scenes: "夜になると同じことをぐるぐる考えてしまう\n占いの結果を聞いても、何をすればいいか分からない\n人の意見に流されて、自分で決められない\nいくつも占いを受けて、結果がばらばらで迷う",
+  belief: "自分の運が悪いから。もっと当たる占い師を探せばいいと思っている",
+  cause: "占いの結果を、毎日の小さな行動に変えて続ける手順と、一緒に見守る人がいないこと",
+  method: "星読み伴走メソッド",
+  step1: "今の気持ちを言葉にする（モヤモヤを紙に書き出して整理する）",
+  step2: "星のリズムに合わせて小さな行動を決める（新月・満月をめやすに1つずつ）",
+  step3: "月に1回ふり返って整える（できたこと・迷ったことを一緒に見直す）",
+  relapse: "一度すっきりしても、忙しい毎日の中で元の考え方のくせに戻ってしまう",
+  career: "占い歴8年、のべ1,500名を鑑定（※架空の例です）",
+  storyBefore: "会社員時代、人間関係で迷い続けて、何人もの占い師を回っていた。",
+  storyTrigger: "占星術を学び、占いの結果を毎日の行動に変えることが大切だと気づいた。",
+  storyNow: "今は、一人ひとりの毎日に寄りそいながら伴走している。",
+  voice: "「夜にぐるぐる考える時間が減った」「人に聞く前に、まず自分で決められるようになった」（30代・会社員の方）※架空の例です",
+  consultName: "体験セッション",
+  consult: "今の迷いを一緒に言葉にして、星のリズムに合わせた最初の一歩を一緒に考えます。",
+  recommend: "占いを受けても、また同じことで迷ってしまう人\n人の意見に流されて、自分で決められない人\n占いの結果を毎日の行動につなげたい人",
+  product: "3か月の伴走サポート（月2回のセッション＋LINEでの相談）15万円（※架空の例です）"
+};
+// 整理収納アドバイザーの例：質問の欄に薄い文字で出している例
+function exampleSeiri(){
+  var a = { pronoun: "私", consultName: "無料個別相談" };
   STEPS.forEach(function(step){
     (step.qs || []).forEach(function(q){
-      (q.sub || [q]).forEach(function(f){
-        if (f.id && f.ex != null && !f.select) answers[f.id] = f.ex;
-      });
+      (q.sub || [q]).forEach(function(f){ if (f.id && f.ex != null && !f.select) a[f.id] = f.ex; });
+    });
+  });
+  return a;
+}
+var EXAMPLE_LIST = [
+  { key: "seiri", label: "整理収納アドバイザー", who: "春野 ゆい／くらし整えラボ", data: exampleSeiri },
+  { key: "uranai", label: "占い師（伴走サポート）", who: "月野 しずく／星読みサロン Luna", data: function(){ return EXAMPLE_URANAI; } }
+];
+
+function fillExample(key){
+  var ex = EXAMPLE_LIST.filter(function(x){ return x.key === key; })[0];
+  if (!ex) return;
+  if (!confirm("今入っている答えは、例（" + ex.label + "）で上書きされます。よろしいですか？")) return;
+  var data = ex.data();
+  STEPS.forEach(function(step){
+    (step.qs || []).forEach(function(q){
+      (q.sub || [q]).forEach(function(f){ if (f.id && data[f.id] != null) answers[f.id] = data[f.id]; });
       // 「得られること」は、例の文だけにそろえる（チェックは外す）
       if (q.checks) answers[q.checks.id] = [];
     });
   });
   save();
-  demoJustFilled = true;
+  demoJustFilled = ex.label;
   go(0);
 }
 
 card.addEventListener("click", function(e){
-  if (e.target.closest("#btnDemo")) { fillExample(); return; }
+  if (e.target.closest("#btnDemo")) {
+    var box = document.getElementById("demoChoices");
+    if (box) box.hidden = !box.hidden;
+    return;
+  }
+  var choice = e.target.closest("[data-example]");
+  if (choice) { fillExample(choice.getAttribute("data-example")); return; }
   var btn = e.target.closest("[data-copy]");
   if (!btn) return;
   copyText(buildPrompt(Number(btn.getAttribute("data-copy"))), btn);
@@ -975,7 +1045,8 @@ function commonRules(){
     "15. 3つのステップの名前は、次の名前を全部の章で一字一句同じに使ってください。言いかえたり、章ごとに変えたりしないでください。",
     "　" + stepNamesLine(),
     "16. 「私自身の場合」の体験談は、章ごとに切り口を変えてください（下の「この章の構成」に書いた切り口）。ほかの章と同じ文は使わないでください。",
-    "　回答に材料が足りないときは、短くするか、その章では書かないでください（話を作らない）。"
+    "　回答に材料が足りないときは、短くするか、その章では書かないでください（話を作らない）。",
+    "17. 不安をあおる言い方（例：このままだと不幸になる）と、運命や結果を言い切る言い方（例：必ず運気が上がる）は使わないでください。"
   ].join("\n");
 }
 
@@ -1288,17 +1359,19 @@ function buildPrompt(n){
       "・著者の一人称は「" + pronoun() + "」にそろえる",
       "・実績の数字は、答えに書かれたものだけを使う",
       "・「（未回答）」の情報は、想像でおぎなわない",
-      "・医療っぽい言葉（診断、治す、治る、治療、症状、病気、効く、完治 など）は使わない"
+      "・医療っぽい言葉（診断、治す、治る、治療、症状、病気、効く、完治 など）は使わない",
+      "・不安をあおる言い方（例：このままだと不幸になる）と、運命や結果を言い切る言い方（例：必ず運気が上がる）は使わない"
     ].join("\n");
   }
 
   var label = ["序章","第1章","第2章","第3章"][n - 1];
-  var chars = n === 1 ? "約3,500字" : "約5,000字";
+  var tg = CH_TARGETS[n - 1];
   return [
     "あなたは、LINE公式アカウントの登録特典（全4章のPDF）を書くプロのライターです。",
     "下の「回答」をもとに、「" + label + "」の原稿を書いてください。",
-    "文字数の目安は" + chars + "です（記号は数えません）。",
+    "文字数の目安は" + tg.text + "です（記号は数えません）。",
     "",
+  ].concat(partBlock(n - 1)).concat([
     LINE,
     "■ 守ってほしいルール",
     LINE,
@@ -1327,7 +1400,40 @@ function buildPrompt(n){
     "■ 記号のルール",
     LINE,
     SYMBOL_RULES
-  ].join("\n");
+  ]).join("\n");
+}
+
+// 章ごとの文字数（目標と上限）。「情報の量がご成約につながる」というプロラインの考え方で決めた
+var CH_TARGETS = [
+  { goal: 2000,  max: 3000,  text: "約2,000字",                  parts: "" },
+  { goal: 10000, max: 12000, text: "約10,000字（上限12,000字）", parts: "2パート" },
+  { goal: 10000, max: 12000, text: "約10,000字（上限12,000字）", parts: "2パート" },
+  { goal: 18000, max: 24000, text: "約18,000字（上限24,000字）", parts: "3〜4パート" }
+];
+// 文字数をふやすときの材料（同じ話のくり返しで増やさない）
+var CH_MATERIALS = [
+  "",
+  "AさんBさんの1日の様子／よくある間違い／セルフチェックの解説／STEP1のくわしいやり方",
+  "秘訣ごとの具体例／よくある質問／書き込みワークの書き方の例",
+  "ロードマップの段階ごとの様子／お客様の変化（回答にあることだけ）／一人だと元に戻りやすい理由／よくある質問／" + "個別相談で分かること"
+];
+// 第1〜3章：パートに分けて書いてもらう
+function partBlock(idx){
+  var tg = CH_TARGETS[idx];
+  if (!tg.parts) return [];
+  return [
+    LINE,
+    "■ 書き方（長いので、パートに分けて書く）",
+    LINE,
+    "・この章は全部で" + tg.text + "です。1回に約5,000字ずつ、全部で" + tg.parts + "に分けて書いてください。",
+    "・いちばん最初に「全部で○パートに分けます」と1行で書いてから、パート1を書き始めてください。",
+    "・1パート書いたら、最後に「パート○まで書きました。続きを書きますか？」と1行で書いて止まってください。",
+    "・私が「続き」と送ったら、前の文章を書き直さず、止まった所の続きから書いてください。",
+    "・記号の部品（【強調】〜【/強調】など）は、パートの境目で途中で切らないでください。部品はかならず1つのパートの中で、始まりから終わりまで書きます。",
+    "・上の2つの1行（「全部で○パート…」「パート○まで書きました…」）は、原稿とは別の行に書いてください（ツールが自動で取りのぞきます）。",
+    "・文字数は、同じ話のくり返しで増やさないでください。次の材料で厚みを出してください：" + CH_MATERIALS[idx].replace(/／/g, "、"),
+    ""
+  ];
 }
 
 // =====================================================
@@ -1356,6 +1462,8 @@ function parseManuscript(text){
   }
   while (i < L.length) {
     var t = L[i];
+    // AIがパート分けのときに書く1行（「全部で○パートに分けます」「パート○まで書きました。続きを書きますか？」など）は取りのぞく
+    if (isPartLine(t)) { i++; continue; }
     var close = t.match(/^【\/([^】]+)】$/);
     var open = t.match(/^【([^】\/]+)】(.*)$/);
     if (close) {
@@ -1410,6 +1518,35 @@ function parseManuscript(text){
 }
 
 function countYk(text){ return (text.match(/（要確認|\(要確認/g) || []).length; }
+
+// パート分けの合図の1行か
+var PART_NUM = "[0-9０-９一二三四五六七八九十]+";
+function isPartLine(s){
+  s = trimAll(s || "");
+  if (!s) return false;
+  return new RegExp("^全部で\\s*" + PART_NUM + "\\s*(つの)?パートに分け").test(s) ||
+    new RegExp("パート\\s*" + PART_NUM + "\\s*(まで|を)書きました").test(s) ||
+    /^(では、?)?続きを書きますか[？?]?$/.test(s) ||
+    new RegExp("^[（(【\\[]?\\s*パート\\s*" + PART_NUM + "\\s*([/／]\\s*" + PART_NUM + ")?\\s*[）)】\\]]?[：:]?$").test(s);
+}
+
+// 原稿の文字数（記号・空白・パート分けの合図の行は数えない）
+function manuscriptChars(text){
+  return (text || "").split(/\r?\n/).filter(function(s){ return !isPartLine(s); }).join("")
+    .replace(/【\/?[^】]{1,12}】/g, "").replace(/[\s\u3000]/g, "").length;
+}
+// 目標と今の文字数を見て、ひとこと
+function charStatus(idx){
+  var tg = CH_TARGETS[idx], text = answers["m" + idx] || "";
+  if (!text.trim()) return null;
+  var now = manuscriptChars(text), msg = "", cls = "ok";
+  if (now > tg.max) { msg = "少し長めです（上限 " + tg.max.toLocaleString() + "字）"; cls = "yk"; }
+  else if (now < tg.goal * 0.7) {
+    msg = tg.parts ? "パートの続きが貼られていないかもしれません" : "原稿が途中で止まっていないか、確かめてください";
+    cls = "yk";
+  }
+  return { now: now, html: '<div class="chars ' + cls + '">目標 ' + tg.text + "／今 <b>" + now.toLocaleString() + "字</b>" + (msg ? "　→ " + msg : "") + "</div>" };
+}
 
 // （要確認）がある行の一覧：何行目に、どんな文章か
 function ykLines(text){
@@ -1561,7 +1698,8 @@ function blockToUnits(b){
   function flow(html, keep){ u.push({ kind: "flow", html: html, keep: !!keep }); }
   switch (t) {
     case "text":
-      richChunks(body).forEach(function(h){ flow(h); });
+      // ふつうの文章（段落・箇条）。ページの空きを埋めるときに、前へ回してよいもの
+      richChunks(body).forEach(function(h){ u.push({ kind: "flow", html: h, keep: false, isText: true }); });
       break;
     case "見出し": if (b.text) flow('<h2 class="d-h2 d-phrase">' + ed(b, inl(b.text), "tag") + "</h2>", true); break;
     case "小見出し": if (b.text) flow('<h3 class="d-h3 d-phrase">' + ed(b, inl(b.text), "tag") + "</h3>", true); break;
@@ -1744,6 +1882,13 @@ function designYago(){
 }
 function designCatch(){ return answers.dCatch || ""; }
 function designColor(){ return answers.dColor || "#2f8f83"; }
+// ブランドカラーのおすすめ（ボタンで選べる）
+var COLOR_PRESETS = [
+  { name: "緑", hex: "#2f8f83" },
+  { name: "やさしい紫", hex: "#8e7cc3" },
+  { name: "ピンク", hex: "#d77a9a" },
+  { name: "ネイビー", hex: "#3d5a80" }
+];
 
 function hexToRgb(hex){ hex = hex.replace("#", ""); return [0, 2, 4].map(function(i){ return parseInt(hex.substr(i, 2), 16); }); }
 function mixRgb(rgb, to, t){ return rgb.map(function(c, i){ return Math.round(c + (to[i] - c) * t); }); }
@@ -1985,20 +2130,96 @@ function layoutChapter(){
     (yago ? '<div class="d-cv-yago">' + edf("dYago", esc(yago)) + "</div>" : "") + "</div></section>");
   phraseFix(cover);
 
-  units.forEach(function(un){
-    if (un.kind === "cover") return;
+  // ---- 改ページのルール ----
+  // ・部品（強調ボックス・カード・表など）は途中で分けず、入りきらなければ部品ごと次のページへ
+  // ・見出しは、すぐ下の文章や部品と同じページに置く（ページの一番下に見出しだけ残さない）
+  // ・ふつうの段落は途中で分けてよい。ただし次のページに残るのが1〜2行になる分け方はしない
+  // ・部品を送ってページの下が半分以上空くときは、その部品のすぐ後ろのふつうの文章を先に入れて埋める
+  // ・1ページに入らないほど長い部品だけは、例外として途中で分ける
+  function usedHeight(){
+    var last = body && body.lastElementChild;
+    return last ? last.getBoundingClientRect().bottom - body.getBoundingClientRect().top : 0;
+  }
+  function makeEl(un){
+    var w = document.createElement("div");
+    w.innerHTML = un.html;
+    // 部品の前に文章があるとき（例：受け取り方の前の文）は、まとめて1つにする
+    var el = w.children.length === 1 ? w.firstElementChild : w;
+    if (!el || !el.childNodes.length) return null;
+    if (un.keep) el.setAttribute("data-keep", "1");
+    phraseFix(el);
+    return el;
+  }
+  // ページの一番下にある見出し（見出し＋小見出しのように続いたものも）を取りはずして返す
+  // ページに見出ししか残っていないとき（＝次のページへ送っても同じ）は null を返す
+  function takeTrailingHeadings(){
+    var carry = [];
+    while (body.lastElementChild && body.lastElementChild.getAttribute("data-keep")) carry.unshift(body.removeChild(body.lastElementChild));
+    if (!body.children.length) { carry.forEach(function(c){ body.appendChild(c); }); return null; }
+    return carry;
+  }
+  // 段落の中の、各行の下の位置（段落の上からの距離）
+  function lineBottoms(p){
+    var range = document.createRange();
+    range.selectNodeContents(p);
+    var top = p.getBoundingClientRect().top, rows = [];
+    Array.prototype.forEach.call(range.getClientRects(), function(r){
+      if (!r.height) return;
+      var t = r.top - top, b = r.bottom - top, row = rows.filter(function(x){ return Math.abs(x.t - t) < r.height / 2; })[0];
+      if (row) row.b = Math.max(row.b, b); else rows.push({ t: t, b: b });
+    });
+    return rows.sort(function(a, b){ return a.t - b.t; }).map(function(x){ return x.b; });
+  }
+  // 段落を、ページをまたいで置く（見える範囲を切り取って、2ページに分けて見せる）
+  function placeParagraph(p){
+    var offset = 0;
+    for (var guard = 0; guard < 20; guard++) {
+      var wrap = document.createElement("div");
+      wrap.className = "d-clip" + (offset ? " d-cont" : "");
+      var piece = offset ? p.cloneNode(true) : p;
+      if (offset) piece.style.marginTop = (-offset) + "px";
+      wrap.appendChild(piece);
+      body.appendChild(wrap);
+      if (!over()) return;
+      var avail = body.getBoundingClientRect().bottom - wrap.getBoundingClientRect().top;
+      var all = lineBottoms(piece).filter(function(b){ return b > offset + 1; });
+      var fit = all.filter(function(b){ return b <= offset + avail; });
+      var k = fit.length, rest = all.length - k;
+      if (rest > 0 && rest < 3) k = Math.max(0, all.length - 3);        // 次のページに1〜2行だけ残さない
+      if (k < 2 && body.children.length > 1) {
+        // このページには1行しか入らない → 段落ごと次のページへ（見出しも連れていく）
+        body.removeChild(wrap);
+        var carryP = takeTrailingHeadings();
+        if (carryP) {
+          newPage(true);
+          carryP.forEach(function(c){ body.appendChild(c); });
+          continue;
+        }
+        body.appendChild(wrap);   // 見出しの下に置くしかない → このページで分ける
+        k = Math.max(1, fit.length);
+      }
+      if (k < 1) k = Math.max(1, fit.length);                              // 1ページに入らないほど長い段落
+      var cut = all[k - 1];
+      wrap.style.height = (cut - offset) + "px";
+      offset = cut;
+      newPage(true);
+    }
+  }
+
+  for (var ui = 0; ui < units.length; ui++) {
+    var un = units[ui];
+    if (un.kind === "cover") continue;
     if (un.kind === "label") {
       label = un.text;
       if (body && !body.children.length) body.parentNode.querySelector(".d-label").textContent = label;
-      return;
+      continue;
     }
     if (un.kind === "break") {
-      if (!body || !body.children.length) return;
+      if (!body || !body.children.length) continue;
       // あふれた文章が少しだけのページなら、改ページせずに続けて使う（ほぼ白いページを作らない）
-      var used = body.lastElementChild.getBoundingClientRect().bottom - body.getBoundingClientRect().top;
-      if (body.autoPage && used < body.clientHeight / 3) return;
+      if (body.autoPage && usedHeight() < body.clientHeight / 3) continue;
       body = null;
-      return;
+      continue;
     }
     if (un.kind === "closing") {
       var sec = addSection('<section class="d-page d-closing"><div class="d-closing-card">' + avatarHtml("lg") +
@@ -2008,37 +2229,49 @@ function layoutChapter(){
       phraseFix(sec);
       if (sec.scrollHeight > sec.clientHeight + 2) { sec.classList.add("d-tall"); tall++; }
       body = null;
-      return;
+      continue;
     }
-    // ふつうの部品
+    // ふつうの文章・部品
     if (!body) newPage();
-    var w = document.createElement("div");
-    w.innerHTML = un.html;
-    // 部品の前に文章があるとき（例：受け取り方の前の文）は、まとめて1つにする
-    var el = w.children.length === 1 ? w.firstElementChild : w;
-    if (!el || !el.childNodes.length) return;
-    if (un.keep) el.setAttribute("data-keep", "1");
-    phraseFix(el);
+    var el = makeEl(un);
+    if (!el) continue;
     body.appendChild(el);
-    if (!over()) return;
-    if (body.children.length === 1) { markTall(); return; }
-    // 入りきらない → 次のページへ（直前の見出しも一緒に連れていく）
+    if (!over()) continue;
     body.removeChild(el);
-    var carry = [];
-    var last = body.lastElementChild;
-    if (last && last.getAttribute("data-keep") && body.children.length > 1) { body.removeChild(last); carry.push(last); }
+    // ふつうの段落 → 途中で分けて置く
+    if (un.isText && el.tagName === "P") { placeParagraph(el); continue; }
+    // 部品（または箇条）→ 部品ごと次のページへ
+    if (!body.children.length) { body.appendChild(el); markTall(); continue; }   // 1ページに入らないほど長い部品
+    var carry = takeTrailingHeadings();
+    if (!carry) { body.appendChild(el); markTall(); continue; }   // 見出し＋この部品で1ページをこえる → 例外として分ける
+    // ページの下が半分以上空くなら、この部品のすぐ後ろのふつうの文章を先に入れる
+    if (!carry.length && !un.isText && (body.clientHeight - usedHeight()) >= body.clientHeight / 2) {
+      var j = ui + 1;
+      while (j < units.length && units[j].kind === "flow" && units[j].isText) j++;
+      if (j > ui + 1) {
+        var pulled = units.splice(ui + 1, j - ui - 1);
+        Array.prototype.splice.apply(units, [ui, 0].concat(pulled));
+        ui--;           // 先に入れた文章から、もう一度並べる
+        continue;
+      }
+    }
     newPage(true);
     carry.forEach(function(c){ body.appendChild(c); });
     body.appendChild(el);
     if (over()) markTall();
-  });
+  }
 
   var pages = preview.querySelectorAll(".d-page");
   pages.forEach(function(p, k){ var no = p.querySelector(".d-no"); if (no) no.textContent = (k + 1) + " / " + pages.length; });
   updateCheckLists();
 
-  layoutInfo = { warns: res.warns, yk: preview.querySelectorAll(".d-yk").length, tall: tall };
+  layoutInfo = { warns: res.warns, yk: ykMarks().length, tall: tall };
   updateFinishAlerts();
+}
+
+// 特典の中の（要確認）の印。ページをまたいだ段落の「続き」の側は数えない（同じ文が2つあるため）
+function ykMarks(){
+  return Array.prototype.slice.call(preview.querySelectorAll(".d-yk")).filter(function(el){ return !el.closest(".d-cont"); });
 }
 
 var layoutTimer = null;
@@ -2071,6 +2304,8 @@ function ykListHtml(idx, list){
 function pasteStatusHtml(idx){
   var c = checkChapter(idx), h = "";
   if (c.empty) return '<span style="color:#888">まだ貼られていません</span>';
+  var cs = charStatus(idx);
+  if (cs) h += cs.html;
   if (c.warns.length) h += '<span class="ng">⚠ ' + c.warns.length + "か所、記号を確認してください</span>" + warnListHtml(idx, c.warns);
   else h += '<span class="ok">✓ 記号はOKです</span>';
   if (c.ykCount) h += '<div class="yk">（要確認）が ' + c.ykCount + " か所あります（行番号を押すと、その場所に移動します）</div>" + ykListHtml(idx, c.yk);
@@ -2085,6 +2320,8 @@ function pasteSummaryHtml(){
       else if (!c.warns.length && !c.ykCount) s = '<span class="ok">✓ OK</span>';
       else s = (c.warns.length ? '<span class="ng">⚠ 記号 ' + c.warns.length + "か所</span>" : '<span class="ok">✓ 記号OK</span>') +
         (c.ykCount ? '　<span class="yk">（要確認） ' + c.ykCount + "か所</span>" : "");
+      var cs = charStatus(i);
+      if (cs) s += '　<span class="chars-mini">' + cs.now.toLocaleString() + "字／目標" + CH_TARGETS[i].goal.toLocaleString() + "字</span>";
       return "<li><b>" + nm + "</b>：" + s + "</li>";
     }).join("") + '</ul><div class="summary-time" id="summaryTime"></div>';
 }
@@ -2136,6 +2373,7 @@ function renderPaste(){
     '<div class="summary-box" id="pasteSummary">' + pasteSummaryHtml() + "</div>";
   CH_NAMES.forEach(function(nm, i){
     html += '<div class="paste-box"><h3>' + nm + 'の原稿</h3>' +
+      (CH_TARGETS[i].parts ? '<div class="q-hint">この章は長いので、AIが' + CH_TARGETS[i].parts + 'に分けて書きます。パートが分かれたときは、順番に下へ貼り足してください（「パート○まで書きました」などの行は、自動で取りのぞきます）。</div>' : "") +
       '<textarea class="paste-text" data-id="m' + i + '" placeholder="ここに' + nm + 'の原稿を貼りつけます">' + esc(answers["m" + i] || "") + "</textarea>" +
       '<div class="status" id="st' + i + '">' + pasteStatusHtml(i) + "</div></div>";
   });
@@ -2150,7 +2388,10 @@ function renderFinish(){
   var html = '<div class="step-title">仕上げてPDFにする</div>' +
     '<div class="step-lead">色とアイコンを選ぶと、下の特典にすぐ反映されます。LINEでは章ごとに配るので、1章ずつPDFにします。</div>' +
     '<div class="design-grid">' +
-      '<label>ブランドカラー<input type="color" data-id="dColor" value="' + esc(designColor()) + '"></label>' +
+      '<label>ブランドカラー<span class="swatches"><input type="color" data-id="dColor" value="' + esc(designColor()) + '">おすすめ：' +
+        COLOR_PRESETS.map(function(c){
+          return '<button class="swatch' + (designColor().toLowerCase() === c.hex ? " on" : "") + '" data-swatch="' + c.hex + '" title="' + c.name + '" style="background:' + c.hex + '"></button>';
+        }).join("") + "</span></label>" +
       '<label>アイコン画像<span class="icon-row"><input type="file" id="inIcon" accept="image/*">' +
         (answers.dIcon ? '<button class="small-btn" id="btnIconOff">外す</button>' : "") + "</span></label>" +
       '<label>屋号｜肩書き<input type="text" data-id="dYago" value="' + esc(designYago()) + '"></label>' +
@@ -2187,13 +2428,13 @@ function updateFinishAlerts(){
   if (info.yk) {
     // 特典の中の黄色い所を、ページ番号と文章で一覧にする（押すとその場所へ移動）
     var lines = ykLines(answers["m" + idx] || "");
-    var marks = Array.prototype.slice.call(preview.querySelectorAll(".d-yk")).filter(function(el){ return !el.closest(".d-cover"); });
+    var marks = ykMarks().filter(function(el){ return !el.closest(".d-cover"); });
     var occ = [];
     lines.forEach(function(y){ var n = (y.text.match(/（要確認|\(要確認/g) || []).length; for (var k = 0; k < n; k++) occ.push(y); });
     var pages = Array.prototype.slice.call(preview.querySelectorAll(".d-page"));
     h += '<div class="alert yk"><b>（要確認）が ' + info.yk + " か所あります。</b>黄色の所です。PDFにする前に、ご自身の言葉に書きかえるのがおすすめです。（押すと、その場所に移動します）" +
       '<ul class="yk-list">' +
-      Array.prototype.slice.call(preview.querySelectorAll(".d-yk")).slice(0, 10).map(function(el, k){
+      ykMarks().slice(0, 10).map(function(el, k){
         var page = pages.indexOf(el.closest(".d-page")) + 1;
         var mi = marks.indexOf(el);
         var src = mi >= 0 && occ.length === marks.length ? occ[mi] : null;
@@ -2224,9 +2465,10 @@ function updateFinishAlerts(){
 }
 
 card.addEventListener("click", function(e){
-  var t = e.target.closest("[data-chap],[data-go],[data-fix],[data-jump],[data-recheck],[data-ykgo],[data-delprice],#btnPrintChap,#btnIconOff");
+  var t = e.target.closest("[data-chap],[data-go],[data-fix],[data-jump],[data-recheck],[data-ykgo],[data-delprice],[data-swatch],#btnPrintChap,#btnIconOff");
   if (!t) return;
   if (t.hasAttribute("data-delprice")) { deleteHiddenPrice(); return; }
+  if (t.hasAttribute("data-swatch")) { answers.dColor = t.getAttribute("data-swatch"); save(); refreshFinishKeepScroll(); return; }
   if (t.hasAttribute("data-fix")) {
     var fp = t.getAttribute("data-fix").split(":"), fi = Number(fp[0]);
     var ws = checkChapter(fi).warns;
@@ -2236,7 +2478,7 @@ card.addEventListener("click", function(e){
   if (t.hasAttribute("data-jump")) { var jp = t.getAttribute("data-jump").split(":"); jumpToLine(Number(jp[0]), Number(jp[1])); return; }
   if (t.hasAttribute("data-recheck")) { recheckAll(); return; }
   if (t.hasAttribute("data-ykgo")) {
-    var mark = preview.querySelectorAll(".d-yk")[Number(t.getAttribute("data-ykgo"))];
+    var mark = ykMarks()[Number(t.getAttribute("data-ykgo"))];
     if (mark) {
       mark.scrollIntoView({ block: "center", behavior: "smooth" });
       mark.classList.add("d-flash");
